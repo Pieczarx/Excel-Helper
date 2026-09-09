@@ -50,3 +50,7 @@ python -m pytest -q
 
 Python, PySide6 (UI), openpyxl (odczyt/zapis Excela), pymupdf (parsowanie PDF faktur),
 Supabase (synchronizacja), watchdog (obserwacja folderu faktur), pystray (ikona w zasobniku).
+
+## Licencja
+
+Proprietary — wszystkie prawa zastrzeżone, patrz [LICENSE](LICENSE).
