@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Lokalny stan uruchomieniowy / dane klienta / poświadczenia - per-maszyna, nie do repo
+data/
+examples/
+
+# OS
+.DS_Store
+Thumbs.db

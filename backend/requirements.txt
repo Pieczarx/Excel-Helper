@@ -1,0 +1,8 @@
+openpyxl
+watchdog
+pystray
+pillow
+PySide6
+supabase
+keyring
+pymupdf
