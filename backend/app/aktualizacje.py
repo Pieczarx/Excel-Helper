@@ -1,8 +1,10 @@
 """Sprawdza GitHub Releases pod kątem nowszej wersji aplikacji niż WERSJA w wersja.py.
 
-Repo jeszcze nie istnieje (excelHelper nie ma dziś zdalnego repo na GitHubie) - REPO_GITHUB
-zostaje puste, dopóki użytkownik go nie założy i nie wpisze tu nazwy (np. "bpietrzyk/excelHelper").
-Dopóki jest puste, sprawdzanie jest cichym no-opem - appka działa normalnie, bez baneru.
+Zapytania są anonimowe (bez tokenu - nie ma go gdzie bezpiecznie trzymać w dystrybuowanej
+aplikacji desktopowej), więc REPO_GITHUB musi wskazywać na PUBLICZNE repo, inaczej GitHub API
+zwraca 404 i sprawdzanie jest cichym no-opem (appka działa normalnie, bez baneru - patrz
+pobierz_najnowsze_wydanie). Dodatkowo wymaga to realnego GitHub Release (nie samego taga) -
+/releases/latest nie widzi tagów bez opublikowanego wydania.
 
 Patrz aktualizator.py dla faktycznego pobierania/instalowania znalezionego wydania.
 """
@@ -16,7 +18,7 @@ from urllib.error import URLError
 
 from PySide6.QtCore import QObject, Signal
 
-REPO_GITHUB: str | None = None
+REPO_GITHUB: str | None = "Pieczarx/Excel-Helper"
 
 _TIMEOUT_SEKUND = 4
 
