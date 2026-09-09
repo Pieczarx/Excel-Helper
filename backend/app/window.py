@@ -132,9 +132,9 @@ class GlowneOkno(QMainWindow):
         self._sprawdzarka_aktualizacji.sprawdz_w_tle(WERSJA, REPO_GITHUB)
 
     def _zbuduj_pasek_aktualizacji(self) -> QWidget:
-        # Ukryty dopoki SprawdzarkaAktualizacji faktycznie nie znajdzie nowszej wersji (albo w
-        # ogole - REPO_GITHUB w aktualizacje.py jest dzis puste, bo apka nie ma jeszcze zdalnego
-        # repo, wiec ten pasek nigdy sie nie pokaze, dopoki ktos tego nie skonfiguruje).
+        # Ukryty dopoki SprawdzarkaAktualizacji faktycznie nie znajdzie nowszej wersji niz WERSJA -
+        # patrz REPO_GITHUB w aktualizacje.py (wymaga publicznego repo + opublikowanego GitHub
+        # Release z tagiem wyzszym niz WERSJA, inaczej pasek sie nie pokaze).
         self._pasek_aktualizacji = QFrame()
         self._pasek_aktualizacji.setStyleSheet(f"background: {SLONCE};")
         self._pasek_aktualizacji.hide()

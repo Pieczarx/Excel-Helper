@@ -4,6 +4,7 @@ from urllib.error import URLError
 
 from PySide6.QtCore import QCoreApplication
 
+import app.aktualizacje as aktualizacje
 from app.aktualizacje import SprawdzarkaAktualizacji, Wydanie, czy_nowsza, pobierz_najnowsze_wydanie
 
 
@@ -33,7 +34,10 @@ def test_czy_nowsza_niepoprawny_format_zwraca_false():
     assert czy_nowsza("niepoprawna-wersja", "1.0.1") is False
 
 
-def test_pobierz_bez_skonfigurowanego_repo_zwraca_none():
+def test_pobierz_bez_skonfigurowanego_repo_zwraca_none(monkeypatch):
+    # repo=None oznacza "użyj REPO_GITHUB z modułu" - żeby przetestować brak konfiguracji
+    # niezależnie od tego, co appka ma dziś realnie wpisane, podmieniamy moduł na pusty.
+    monkeypatch.setattr(aktualizacje, "REPO_GITHUB", None)
     assert pobierz_najnowsze_wydanie(repo=None) is None
     assert pobierz_najnowsze_wydanie(repo="") is None
 
