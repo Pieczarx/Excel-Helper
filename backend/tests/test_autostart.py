@@ -1,11 +1,14 @@
 import re
+import subprocess
 from pathlib import Path
 
 from app.autostart import (
     NAZWA_ZADANIA,
+    czy_zainstalowany,
     polecenie_instalacji,
     polecenie_instalacji_zamrozonej,
     polecenie_odinstalowania,
+    polecenie_sprawdzenia,
     zawartosc_vbs,
 )
 
@@ -52,3 +55,23 @@ def test_polecenie_instalacji_zamrozonej_wskazuje_bezposrednio_na_exe():
 def test_polecenie_odinstalowania_usuwa_to_samo_zadanie():
     polecenie = polecenie_odinstalowania()
     assert polecenie == ["schtasks", "/delete", "/tn", NAZWA_ZADANIA, "/f"]
+
+
+def test_polecenie_sprawdzenia_pyta_o_to_samo_zadanie():
+    assert polecenie_sprawdzenia() == ["schtasks", "/query", "/tn", NAZWA_ZADANIA]
+
+
+def test_czy_zainstalowany_true_gdy_schtasks_znajduje_zadanie(monkeypatch):
+    monkeypatch.setattr(
+        "app.autostart.subprocess.run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], returncode=0),
+    )
+    assert czy_zainstalowany() is True
+
+
+def test_czy_zainstalowany_false_gdy_schtasks_nie_znajduje_zadania(monkeypatch):
+    monkeypatch.setattr(
+        "app.autostart.subprocess.run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], returncode=1),
+    )
+    assert czy_zainstalowany() is False

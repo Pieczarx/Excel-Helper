@@ -56,6 +56,10 @@ def polecenie_odinstalowania() -> list[str]:
     return ["schtasks", "/delete", "/tn", NAZWA_ZADANIA, "/f"]
 
 
+def polecenie_sprawdzenia() -> list[str]:
+    return ["schtasks", "/query", "/tn", NAZWA_ZADANIA]
+
+
 def zainstaluj() -> None:
     if czy_zamrozona():
         subprocess.run(polecenie_instalacji_zamrozonej(Path(sys.executable).resolve()), check=True)
@@ -67,3 +71,11 @@ def zainstaluj() -> None:
 
 def odinstaluj() -> None:
     subprocess.run(polecenie_odinstalowania(), check=True)
+
+
+def czy_zainstalowany() -> bool:
+    """Pyta Harmonogram zadań Windows, czy zadanie autostartu już istnieje - do odzwierciedlenia
+    stanu w checkboksie w UI (window.py) przy starcie okna, niezależnie od tego, czy user włączył
+    je wcześniej przez ten checkbox, czy (na starszej instalacji) przez zainstaluj_autostart.py."""
+    wynik = subprocess.run(polecenie_sprawdzenia(), capture_output=True)
+    return wynik.returncode == 0
