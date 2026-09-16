@@ -133,11 +133,11 @@ def test_klik_zainstaluj_uruchamia_instalacje_w_tle_i_blokuje_przycisk(tmp_path,
     okno._na_znaleziono_nowsza_wersje(_wydanie("9.9.9"))
 
     wywolania = []
-    monkeypatch.setattr(okno._instalator, "instaluj_w_tle", lambda url: wywolania.append(url))
+    monkeypatch.setattr(okno._instalator, "instaluj_w_tle", lambda wydanie: wywolania.append(wydanie))
 
     okno._na_klik_zainstaluj()
 
-    assert wywolania == ["http://przykladowy-url/v9.9.9.zip"]
+    assert wywolania == [_wydanie("9.9.9")]
     assert not okno._przycisk_zainstaluj.isEnabled()
     assert okno._przycisk_zainstaluj.text() == "Instalowanie..."
 

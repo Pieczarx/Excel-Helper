@@ -1,14 +1,18 @@
 """Pobiera i instaluje nowszą wersję aplikacji z GitHub Releases - patrz aktualizacje.py po samo
-sprawdzanie wersji. "Instalacja" oznacza tu podmianę plików źródłowych aplikacji na dysku i
-restart procesu, żeby nowy kod się wczytał - Python nie trzyma blokady na zaimportowanych .py
-(w przeciwieństwie do np. podmiany działającego .exe), więc to bezpieczne. To nie jest jeszcze
-prawdziwy instalator z paczki - dopasowane do obecnego sposobu dystrybucji (uruchamiane z źródła
-przez `python -m app.main`); da się to później podmienić na coś bardziej "instalatorowego" bez
-zmiany UX (dalej jeden przycisk "Zainstaluj").
+sprawdzanie wersji. Dwa tryby instalacji, w zależności od tego, jak appka dziś działa (patrz
+app/sciezki.py):
 
-Katalog aplikacji (ten, którego zawartość jest podmieniana) to `backend/` - dane użytkownika
-(`data/`, `examples/`) leżą PIĘTRO WYŻEJ, jako rodzeństwo `backend/`, więc nie są w ogóle w
-zasięgu tej podmiany - nie trzeba ich osobno wykluczać, są bezpieczne z konstrukcji.
+- Z kodu źródłowego (`python -m app.main`): "instalacja" to podmiana plików źródłowych na dysku -
+  Python nie trzyma blokady na zaimportowanych .py, więc bezpieczne zrobić w locie.
+- Spakowana do .exe (PyInstaller): nie ma plików źródłowych do podmiany - "instalacja" to pobranie
+  nowego .exe (jako załącznik/asset danego GitHub Release, patrz Wydanie.url_exe w aktualizacje.py)
+  i podmiana samego pliku wykonywalnego. Windows pozwala PRZENIEŚĆ (rename) działający .exe (loader
+  trzyma go z FILE_SHARE_DELETE), więc stary plik jest odsuwany na bok, a nowy wchodzi na jego
+  miejsce - restart odpala już nową wersję.
+
+Katalog aplikacji (ten, którego zawartość jest podmieniana w trybie źródłowym / w którym leży .exe
+w trybie zamrożonym) NIGDY nie zawiera `data/` - patrz app/sciezki.katalog_danych() - więc dane
+użytkownika są bezpieczne z konstrukcji, bez osobnego wykluczania.
 """
 from __future__ import annotations
 
@@ -20,17 +24,24 @@ import threading
 import urllib.request
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal
 
-KATALOG_APLIKACJI = Path(__file__).resolve().parents[1]  # .../excelHelper/backend
+from app.sciezki import czy_zamrozona
+from app.sciezki import katalog_aplikacji as _katalog_aplikacji_biezacy
+
+if TYPE_CHECKING:
+    from app.aktualizacje import Wydanie
+
+KATALOG_APLIKACJI = _katalog_aplikacji_biezacy()
 
 
 class BladInstalacji(Exception):
     pass
 
 
-def _pobierz_zip(url: str, cel: Path) -> None:
+def _pobierz_plik(url: str, cel: Path) -> None:
     try:
         urllib.request.urlretrieve(url, cel)
     except OSError as exc:
@@ -66,7 +77,7 @@ def zainstaluj(url_zip: str, katalog_aplikacji: Path = KATALOG_APLIKACJI) -> Non
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         archiwum = tmp_path / "wydanie.zip"
-        _pobierz_zip(url_zip, archiwum)
+        _pobierz_plik(url_zip, archiwum)
 
         rozpakowane = tmp_path / "rozpakowane"
         try:
@@ -89,9 +100,54 @@ def zainstaluj(url_zip: str, katalog_aplikacji: Path = KATALOG_APLIKACJI) -> Non
             ) from exc
 
 
+def zainstaluj_zamrozona(url_exe: str, biezacy_exe: Path) -> None:
+    """Podmienia sam plik .exe - odsuwa działający plik na bok (Windows na to pozwala, loader
+    trzyma go z FILE_SHARE_DELETE), wstawia na jego miejsce nowo pobrany. Odsunięty plik zostaje
+    obok (posprzątany przy następnym starcie - patrz posprzataj_poprzednia_wersje()), bo usunięcie
+    pliku, który wciąż wykonuje działający proces, nie zawsze się na Windows udaje."""
+    with tempfile.TemporaryDirectory() as tmp:
+        nowy_exe = Path(tmp) / "nowy.exe"
+        _pobierz_plik(url_exe, nowy_exe)
+
+        poprzedni = biezacy_exe.with_name(biezacy_exe.name + ".poprzedni")
+        poprzedni.unlink(missing_ok=True)
+        try:
+            biezacy_exe.rename(poprzedni)
+        except OSError as exc:
+            raise BladInstalacji(f"Nie udało się podmienić pliku aplikacji: {exc}") from None
+        try:
+            shutil.copy2(nowy_exe, biezacy_exe)
+        except Exception as exc:
+            poprzedni.rename(biezacy_exe)
+            raise BladInstalacji(
+                f"Nie udało się zainstalować aktualizacji, przywrócono poprzednią wersję: {exc}"
+            ) from exc
+
+
+def posprzataj_poprzednia_wersje(biezacy_exe: Path | None = None) -> None:
+    """Usuwa odsunięty plik `.poprzedni` z ewentualnej wcześniejszej aktualizacji - wywoływane przy
+    starcie appki (main.py), kiedy stary plik nie jest już przez nikogo wykonywany, więc usunięcie
+    na pewno się uda. Cichy no-op, jeśli nic nie ma do posprzątania."""
+    biezacy_exe = biezacy_exe or Path(sys.executable).resolve()
+    biezacy_exe.with_name(biezacy_exe.name + ".poprzedni").unlink(missing_ok=True)
+
+
+def zainstaluj_wydanie(wydanie: Wydanie, katalog_aplikacji: Path = KATALOG_APLIKACJI) -> None:
+    """Dyspozytor: wybiera tryb instalacji zgodnie z tym, jak appka dziś faktycznie działa."""
+    if czy_zamrozona():
+        if not wydanie.url_exe:
+            raise BladInstalacji("To wydanie nie zawiera zbudowanego pliku .exe")
+        zainstaluj_zamrozona(wydanie.url_exe, Path(sys.executable).resolve())
+        return
+    zainstaluj(wydanie.url_zip, katalog_aplikacji)
+
+
 def uruchom_ponownie(katalog_aplikacji: Path = KATALOG_APLIKACJI) -> None:
-    """Odpala nowy proces appki - ma być wywołane PO zainstaluj() i tuż przed zamknięciem
-    bieżącego procesu, żeby nowy (podmieniony) kod faktycznie się załadował."""
+    """Odpala nowy proces appki - ma być wywołane PO zainstaluj_wydanie() i tuż przed zamknięciem
+    bieżącego procesu, żeby nowy (podmieniony) kod/plik faktycznie się załadował."""
+    if czy_zamrozona():
+        subprocess.Popen([str(Path(sys.executable).resolve())])
+        return
     subprocess.Popen([sys.executable, "-m", "app.main"], cwd=str(katalog_aplikacji))
 
 
@@ -101,12 +157,12 @@ class Instalator(QObject):
     zakonczono = Signal()
     blad = Signal(str)
 
-    def instaluj_w_tle(self, url_zip: str) -> None:
-        threading.Thread(target=self._instaluj, args=(url_zip,), daemon=True).start()
+    def instaluj_w_tle(self, wydanie: Wydanie) -> None:
+        threading.Thread(target=self._instaluj, args=(wydanie,), daemon=True).start()
 
-    def _instaluj(self, url_zip: str) -> None:
+    def _instaluj(self, wydanie: Wydanie) -> None:
         try:
-            zainstaluj(url_zip)
+            zainstaluj_wydanie(wydanie)
         except BladInstalacji as exc:
             self.blad.emit(str(exc))
             return

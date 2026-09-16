@@ -5,12 +5,16 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QCoreApplication
 
+from app.aktualizacje import Wydanie
 from app.aktualizator import (
     BladInstalacji,
     Instalator,
     _podmien_pliki,
     _znajdz_katalog_backend,
+    posprzataj_poprzednia_wersje,
     zainstaluj,
+    zainstaluj_wydanie,
+    zainstaluj_zamrozona,
 )
 
 
@@ -138,14 +142,18 @@ def test_zainstaluj_blad_pobierania_rzuca_blad_instalacji(tmp_path, monkeypatch)
         zainstaluj("http://przykladowy-url/wydanie.zip", katalog_aplikacji=katalog_aplikacji)
 
 
+def _przykladowe_wydanie() -> Wydanie:
+    return Wydanie(tag="v1.2.3", wersja="1.2.3", url_zip="http://przykladowy-url/wydanie.zip")
+
+
 def test_instalator_emituje_zakonczono_po_udanej_instalacji(tmp_path, monkeypatch):
     _app()
-    monkeypatch.setattr("app.aktualizator.zainstaluj", lambda url: None)
+    monkeypatch.setattr("app.aktualizator.zainstaluj_wydanie", lambda wydanie: None)
     instalator = Instalator()
     odebrane = []
     instalator.zakonczono.connect(lambda: odebrane.append(True))
 
-    instalator.instaluj_w_tle("http://przykladowy-url/wydanie.zip")
+    instalator.instaluj_w_tle(_przykladowe_wydanie())
 
     assert _poczekaj_az(lambda: odebrane == [True])
 
@@ -153,14 +161,82 @@ def test_instalator_emituje_zakonczono_po_udanej_instalacji(tmp_path, monkeypatc
 def test_instalator_emituje_blad_gdy_instalacja_sie_nie_powiedzie(tmp_path, monkeypatch):
     _app()
 
-    def _rzuc(url):
+    def _rzuc(wydanie):
         raise BladInstalacji("cos poszlo nie tak")
 
-    monkeypatch.setattr("app.aktualizator.zainstaluj", _rzuc)
+    monkeypatch.setattr("app.aktualizator.zainstaluj_wydanie", _rzuc)
     instalator = Instalator()
     odebrane = []
     instalator.blad.connect(odebrane.append)
 
-    instalator.instaluj_w_tle("http://przykladowy-url/wydanie.zip")
+    instalator.instaluj_w_tle(_przykladowe_wydanie())
 
     assert _poczekaj_az(lambda: odebrane == ["cos poszlo nie tak"])
+
+
+def test_zainstaluj_zamrozona_podmienia_plik_exe(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "app.aktualizator.urllib.request.urlretrieve",
+        lambda url, cel: Path(cel).write_text("nowa-wersja-exe"),
+    )
+    biezacy_exe = tmp_path / "Excel Helper.exe"
+    biezacy_exe.write_text("stara-wersja-exe")
+
+    zainstaluj_zamrozona("http://przykladowy-url/Excel Helper.exe", biezacy_exe)
+
+    assert biezacy_exe.read_text() == "nowa-wersja-exe"
+    assert (tmp_path / "Excel Helper.exe.poprzedni").read_text() == "stara-wersja-exe"
+
+
+def test_zainstaluj_zamrozona_przywraca_poprzedni_plik_gdy_kopiowanie_sie_nie_powiedzie(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "app.aktualizator.urllib.request.urlretrieve",
+        lambda url, cel: Path(cel).write_text("nowa-wersja-exe"),
+    )
+    monkeypatch.setattr(
+        "app.aktualizator.shutil.copy2",
+        lambda *a: (_ for _ in ()).throw(OSError("dysk pelny")),
+    )
+    biezacy_exe = tmp_path / "Excel Helper.exe"
+    biezacy_exe.write_text("stara-wersja-exe")
+
+    with pytest.raises(BladInstalacji):
+        zainstaluj_zamrozona("http://przykladowy-url/Excel Helper.exe", biezacy_exe)
+
+    assert biezacy_exe.read_text() == "stara-wersja-exe"
+
+
+def test_posprzataj_poprzednia_wersje_usuwa_odsuniety_plik(tmp_path):
+    biezacy_exe = tmp_path / "Excel Helper.exe"
+    biezacy_exe.write_text("aktualna-wersja")
+    poprzedni = tmp_path / "Excel Helper.exe.poprzedni"
+    poprzedni.write_text("stara-wersja")
+
+    posprzataj_poprzednia_wersje(biezacy_exe)
+
+    assert not poprzedni.exists()
+    assert biezacy_exe.exists()  # sam biezacy plik nietkniety
+
+
+def test_posprzataj_poprzednia_wersje_bez_niczego_do_posprzatania_nie_rzuca(tmp_path):
+    posprzataj_poprzednia_wersje(tmp_path / "Excel Helper.exe")
+
+
+def test_zainstaluj_wydanie_w_trybie_zrodlowym_woła_zainstaluj(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.aktualizator.czy_zamrozona", lambda: False)
+    wywolania = []
+    monkeypatch.setattr(
+        "app.aktualizator.zainstaluj",
+        lambda url_zip, katalog_aplikacji: wywolania.append((url_zip, katalog_aplikacji)),
+    )
+
+    zainstaluj_wydanie(_przykladowe_wydanie(), katalog_aplikacji=tmp_path)
+
+    assert wywolania == [("http://przykladowy-url/wydanie.zip", tmp_path)]
+
+
+def test_zainstaluj_wydanie_w_trybie_zamrozonym_bez_exe_rzuca_blad(monkeypatch):
+    monkeypatch.setattr("app.aktualizator.czy_zamrozona", lambda: True)
+
+    with pytest.raises(BladInstalacji):
+        zainstaluj_wydanie(_przykladowe_wydanie())

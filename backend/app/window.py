@@ -168,7 +168,7 @@ class GlowneOkno(QMainWindow):
     def _na_klik_zainstaluj(self) -> None:
         self._przycisk_zainstaluj.setEnabled(False)
         self._przycisk_zainstaluj.setText("Instalowanie...")
-        self._instalator.instaluj_w_tle(self._wydanie_do_instalacji.url_zip)
+        self._instalator.instaluj_w_tle(self._wydanie_do_instalacji)
 
     def _na_instalacja_zakonczona(self) -> None:
         # Restart natychmiast, bez pytania - nowy kod jest juz na dysku, ale ten proces dalej

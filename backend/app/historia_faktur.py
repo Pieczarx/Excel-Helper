@@ -14,8 +14,9 @@ from datetime import date, datetime
 from pathlib import Path
 
 from app.import_faktur import WynikWpisu
+from app.sciezki import katalog_danych
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "historia_faktur.db"
+DEFAULT_DB_PATH = katalog_danych() / "historia_faktur.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS historia_faktur (

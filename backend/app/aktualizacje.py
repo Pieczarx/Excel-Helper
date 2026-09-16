@@ -28,6 +28,8 @@ class Wydanie:
     tag: str  # dokladny tag z GitHuba (np. "v1.0.2" albo "1.0.2") - potrzebny do pobrania archiwum
     wersja: str  # znormalizowany numer (bez "v") - do porownan i wyswietlania
     url_zip: str  # archiwum zrodla dla tego taga (GitHub generuje je automatycznie dla kazdego taga)
+    url_exe: str | None = None  # zbudowany .exe jako zalacznik (asset) release'u - None, jesli
+    # release go nie ma (np. release jeszcze bez recznie wgranego pliku); patrz aktualizator.py
 
 
 def _wersja_do_krotki(wersja: str) -> tuple[int, ...]:
@@ -55,10 +57,15 @@ def pobierz_najnowsze_wydanie(repo: str | None = None) -> Wydanie | None:
         ) as odpowiedz:
             dane = json.loads(odpowiedz.read().decode("utf-8"))
         tag = dane["tag_name"]
+        url_exe = next(
+            (a["browser_download_url"] for a in dane.get("assets", []) if a["name"].endswith(".exe")),
+            None,
+        )
         return Wydanie(
             tag=tag,
             wersja=tag.lstrip("vV"),
             url_zip=f"https://github.com/{repo}/archive/refs/tags/{tag}.zip",
+            url_exe=url_exe,
         )
     except (URLError, KeyError, ValueError, TimeoutError, OSError):
         return None

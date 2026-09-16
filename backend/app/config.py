@@ -4,7 +4,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+from app.sciezki import katalog_danych
+
+_DATA_DIR = katalog_danych()
 DEFAULT_CONFIG_PATH = _DATA_DIR / "config.json"
 DEFAULT_FAKTURY_CONFIG_PATH = _DATA_DIR / "faktury_config.json"
 DEFAULT_SUPABASE_CONFIG_PATH = _DATA_DIR / "supabase.json"

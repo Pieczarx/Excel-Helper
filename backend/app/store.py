@@ -12,8 +12,9 @@ import threading
 from pathlib import Path
 
 from app.alerts import Alert
+from app.sciezki import katalog_danych
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "alerts.db"
+DEFAULT_DB_PATH = katalog_danych() / "alerts.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS oznaczone_prawidlowe (

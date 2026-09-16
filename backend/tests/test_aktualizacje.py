@@ -62,6 +62,48 @@ def test_pobierz_parsuje_tag_i_buduje_url_archiwum(monkeypatch):
     )
 
 
+def test_pobierz_znajduje_zalaczony_exe_wsrod_assetow(monkeypatch):
+    class _FakeOdpowiedz:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return json.dumps({
+                "tag_name": "v1.2.3",
+                "assets": [
+                    {"name": "Excel Helper.exe", "browser_download_url": "https://github.com/x/y/releases/download/v1.2.3/Excel.Helper.exe"},
+                    {"name": "Source code.zip", "browser_download_url": "https://github.com/x/y/archive/v1.2.3.zip"},
+                ],
+            }).encode("utf-8")
+
+    monkeypatch.setattr("app.aktualizacje.urllib.request.urlopen", lambda *a, **k: _FakeOdpowiedz())
+
+    wydanie = pobierz_najnowsze_wydanie(repo="ktos/repo")
+
+    assert wydanie.url_exe == "https://github.com/x/y/releases/download/v1.2.3/Excel.Helper.exe"
+
+
+def test_pobierz_bez_zalacznika_exe_zostawia_none(monkeypatch):
+    class _FakeOdpowiedz:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return json.dumps({"tag_name": "v1.2.3", "assets": []}).encode("utf-8")
+
+    monkeypatch.setattr("app.aktualizacje.urllib.request.urlopen", lambda *a, **k: _FakeOdpowiedz())
+
+    wydanie = pobierz_najnowsze_wydanie(repo="ktos/repo")
+
+    assert wydanie.url_exe is None
+
+
 def test_pobierz_blad_sieci_zwraca_none_nie_rzuca(monkeypatch):
     def _rzuc(*a, **k):
         raise URLError("brak polaczenia")

@@ -14,9 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import DEFAULT_CONFIG_PATH, DEFAULT_FAKTURY_CONFIG_PATH
+from app.sciezki import katalog_danych
 from app.styl import KORAL, ZIELEN
 
-_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+_DATA_DIR = katalog_danych()
 
 
 @dataclass(frozen=True)

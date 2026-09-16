@@ -3,24 +3,25 @@ from __future__ import annotations
 
 import sys
 import threading
-from pathlib import Path
 
 from PySide6.QtCore import qInstallMessageHandler
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from app.aktualizator import posprzataj_poprzednia_wersje
 from app.config import wczytaj_konfiguracje_supabase
 from app.firmy import FIRMY
 from app.historia_faktur_base import PustyMagazynHistorii
 from app.kontroler import Kontroler
 from app.kontroler_faktur import KontrolerFaktur
+from app.sciezki import czy_zamrozona, katalog_zasobow
 from app.store import AlertStore
 from app.store_base import MagazynAlertow
 from app.supabase_store import przywroc_sesje
 from app.tray import TrayApp
 from app.window import GlowneOkno
 
-ICON_PATH = Path(__file__).resolve().parents[1] / "assets" / "icon.ico"
+ICON_PATH = katalog_zasobow() / "icon.ico"
 
 
 def _filtruj_komunikaty_qt(typ, kontekst, wiadomosc) -> None:
@@ -48,6 +49,8 @@ def _poczatkowy_magazyn() -> MagazynAlertow:
 
 
 def main() -> None:
+    if czy_zamrozona():
+        posprzataj_poprzednia_wersje()  # sprzata plik .poprzedni po ewentualnej aktualizacji
     qInstallMessageHandler(_filtruj_komunikaty_qt)
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # dalej dziala w tray po zamknieciu okna (X)

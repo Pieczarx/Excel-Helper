@@ -1,7 +1,13 @@
 import re
 from pathlib import Path
 
-from app.autostart import NAZWA_ZADANIA, polecenie_instalacji, polecenie_odinstalowania, zawartosc_vbs
+from app.autostart import (
+    NAZWA_ZADANIA,
+    polecenie_instalacji,
+    polecenie_instalacji_zamrozonej,
+    polecenie_odinstalowania,
+    zawartosc_vbs,
+)
 
 
 def _dekoduj_argument_run(vbs: str) -> str:
@@ -31,6 +37,16 @@ def test_polecenie_instalacji_wskazuje_wscript_i_plik_vbs():
     assert NAZWA_ZADANIA in polecenie
     assert f'wscript.exe "{vbs_path}"' in polecenie
     assert "onlogon" in polecenie
+
+
+def test_polecenie_instalacji_zamrozonej_wskazuje_bezposrednio_na_exe():
+    sciezka_exe = Path(r"C:\ExcelHelper\Excel Helper.exe")
+    polecenie = polecenie_instalacji_zamrozonej(sciezka_exe)
+    assert polecenie[:2] == ["schtasks", "/create"]
+    assert NAZWA_ZADANIA in polecenie
+    assert f'"{sciezka_exe}"' in polecenie
+    assert "onlogon" in polecenie
+    assert "wscript.exe" not in " ".join(polecenie)
 
 
 def test_polecenie_odinstalowania_usuwa_to_samo_zadanie():

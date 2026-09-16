@@ -11,6 +11,11 @@ venv/
 data/
 examples/
 
+# Wynik budowania .exe (PyInstaller) - regenerowalny z excel_helper.spec, za duży na repo;
+# trafia jako załącznik do GitHub Release, nie do gita
+backend/build/
+backend/dist/
+
 # OS
 .DS_Store
 Thumbs.db
