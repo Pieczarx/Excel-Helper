@@ -46,6 +46,24 @@ cd backend
 python -m pytest -q
 ```
 
+## Budowanie .exe (dystrybucja dla Klienta)
+
+Klient nie instaluje Pythona — dostaje jeden plik `.exe` (PyInstaller, tryb `--onefile`):
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m PyInstaller excel_helper.spec --noconfirm
+```
+
+Wynik: `backend/dist/Excel Helper.exe`. Ten plik wgrywasz ręcznie jako załącznik (asset) do
+GitHub Release z tagiem odpowiadającym `WERSJA` w [wersja.py](backend/app/wersja.py) — appka
+sama znajdzie go przy sprawdzaniu aktualizacji (patrz [aktualizacje.py](backend/app/aktualizacje.py)).
+
+Dane użytkownika (`data/`) i zasoby appki (ikona) mają osobne, tryb-świadome ścieżki
+(patrz [sciezki.py](backend/app/sciezki.py)) - w .exe trafiają obok samego pliku wykonywalnego,
+nie do tymczasowego katalogu, w którym PyInstaller rozpakowuje się przy każdym starcie.
+
 ## Stos technologiczny
 
 Python, PySide6 (UI), openpyxl (odczyt/zapis Excela), pymupdf (parsowanie PDF faktur),
