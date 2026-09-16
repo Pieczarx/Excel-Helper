@@ -1,6 +1,7 @@
 """Punkt wejścia: aplikacja z ikoną w zasobniku i głównym oknem."""
 from __future__ import annotations
 
+import subprocess
 import sys
 import threading
 
@@ -8,6 +9,7 @@ from PySide6.QtCore import qInstallMessageHandler
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from app import autostart
 from app.aktualizator import posprzataj_poprzednia_wersje
 from app.config import wczytaj_konfiguracje_supabase
 from app.firmy import FIRMY
@@ -34,6 +36,18 @@ def _filtruj_komunikaty_qt(typ, kontekst, wiadomosc) -> None:
     sys.stderr.write(wiadomosc + "\n")
 
 
+def _zapewnij_autostart() -> None:
+    """Rejestruje autostart automatycznie, bez pytania użytkownika - appka ma po prostu sama
+    startować z systemem, nie wymagać od nikogo świadomej decyzji/checkboksa (patrz window.py -
+    dawny checkbox w stopce świadomie usunięty). Cicho ignoruje błąd (np. brak uprawnień) - appka
+    ma dalej normalnie działać, nawet jeśli akurat nie da się zarejestrować autostartu."""
+    try:
+        if not autostart.czy_zainstalowany():
+            autostart.zainstaluj()
+    except (subprocess.CalledProcessError, OSError):
+        pass
+
+
 def _poczatkowy_magazyn() -> MagazynAlertow:
     """Supabase, jeśli da się cicho odtworzyć zapamiętaną sesję - inaczej lokalny SQLite od razu,
     żeby appka nigdy nie blokowała startu na oknie logowania. Użytkownik loguje się później,
@@ -51,6 +65,7 @@ def _poczatkowy_magazyn() -> MagazynAlertow:
 def main() -> None:
     if czy_zamrozona():
         posprzataj_poprzednia_wersje()  # sprzata plik .poprzedni po ewentualnej aktualizacji
+    _zapewnij_autostart()
     qInstallMessageHandler(_filtruj_komunikaty_qt)
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # dalej dziala w tray po zamknieciu okna (X)

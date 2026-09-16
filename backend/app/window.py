@@ -4,12 +4,9 @@ dla zawartości każdej z nich - to okno tylko je hostuje razem z paskiem logowa
 które są wspólne dla całej appki, nie konkretnej zakładki."""
 from __future__ import annotations
 
-import subprocess
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -23,7 +20,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app import autostart
 from app.aktualizacje import REPO_GITHUB, SprawdzarkaAktualizacji, Wydanie
 from app.aktualizator import Instalator, uruchom_ponownie
 from app.firmy import Firma
@@ -439,23 +435,12 @@ class GlowneOkno(QMainWindow):
         self._synchronizuj_historie_faktur()
 
     def _zbuduj_stopke(self) -> QWidget:
+        # Autostart jest zalatwiany automatycznie przy starcie appki (main.py, cicho, bez pytania
+        # uzytkownika) - stopka pokazuje juz tylko numer wersji, celowo bez zadnego przelacznika.
         stopka = QFrame()
         stopka.setStyleSheet(f"background: {PAPIER};")
         uklad = QHBoxLayout(stopka)
         uklad.setContentsMargins(16, 4, 16, 10)
-
-        self._checkbox_autostart = QCheckBox("Uruchamiaj przy starcie systemu")
-        self._checkbox_autostart.setCursor(Qt.PointingHandCursor)
-        self._checkbox_autostart.setStyleSheet(
-            f"QCheckBox {{ background: transparent; color: {BLADY}; font-size: 11px; "
-            f"font-family: {CZCIONKA_TEKST}; }}"
-            f"QCheckBox:hover {{ color: {STONOWANY}; }}"
-        )
-        # Stan odczytany z realnego Harmonogramu zadań (nie z zapamietanego configu appki) -
-        # zeby checkbox nigdy nie klamal, nawet jesli ktos zmienil to reczne poza appka.
-        self._checkbox_autostart.setChecked(autostart.czy_zainstalowany())
-        self._checkbox_autostart.toggled.connect(self._na_zmiane_autostartu)
-        uklad.addWidget(self._checkbox_autostart)
 
         self._przycisk_wersja = QPushButton(f"ver. {WERSJA}")
         self._przycisk_wersja.setFlat(True)
@@ -470,19 +455,6 @@ class GlowneOkno(QMainWindow):
         uklad.addWidget(self._przycisk_wersja)
         uklad.addStretch()
         return stopka
-
-    def _na_zmiane_autostartu(self, wlaczony: bool) -> None:
-        try:
-            autostart.zainstaluj() if wlaczony else autostart.odinstaluj()
-        except (subprocess.CalledProcessError, OSError) as exc:
-            czynnosc = "włączyć" if wlaczony else "wyłączyć"
-            QMessageBox.warning(
-                self, "Nie udało się zmienić autostartu",
-                f"Nie udało się {czynnosc} uruchamiania przy starcie systemu: {exc}",
-            )
-            self._checkbox_autostart.blockSignals(True)
-            self._checkbox_autostart.setChecked(not wlaczony)
-            self._checkbox_autostart.blockSignals(False)
 
     def _pokaz_changelog(self) -> None:
         dialog = OknoChangelog(parent=self)

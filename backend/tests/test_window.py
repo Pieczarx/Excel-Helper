@@ -1,4 +1,3 @@
-import pytest
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app.aktualizacje import Wydanie
@@ -15,14 +14,6 @@ from app.window import ZAKLADKA_UZUPELNIJ, ZAKLADKA_WERYFIKACJA, GlowneOkno
 def _app():
     app = QApplication.instance()
     return app or QApplication([])
-
-
-@pytest.fixture(autouse=True)
-def _bez_prawdziwego_schtasks(monkeypatch):
-    """GlowneOkno pyta Harmonogram zadań Windows o stan autostartu przy każdym starcie okna
-    (patrz _zbuduj_stopke) - w testach to zawsze udawany, wyłączony stan, żeby testy nie zależały
-    od realnego stanu systemu i nie odpalały prawdziwego schtasks."""
-    monkeypatch.setattr("app.window.autostart.czy_zainstalowany", lambda: False)
 
 
 def _firmy_testowe(tmp_path) -> list[Firma]:
@@ -274,63 +265,3 @@ def test_zamkniecie_okna_nie_zamyka_go_naprawde(tmp_path):
 
     assert not okno.isVisible()
     assert okno.isHidden()  # okno istnieje dalej (nie zniszczone), tylko ukryte
-
-
-def test_checkbox_autostartu_odzwierciedla_stan_przy_starcie_wylaczony(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.window.autostart.czy_zainstalowany", lambda: False)
-    _app()
-    okno = _okno(tmp_path)
-
-    assert not okno._checkbox_autostart.isChecked()
-
-
-def test_checkbox_autostartu_odzwierciedla_stan_przy_starcie_wlaczony(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.window.autostart.czy_zainstalowany", lambda: True)
-    _app()
-    okno = _okno(tmp_path)
-
-    assert okno._checkbox_autostart.isChecked()
-
-
-def test_zaznaczenie_checkboxa_instaluje_autostart(tmp_path, monkeypatch):
-    _app()
-    okno = _okno(tmp_path)
-    wywolania = []
-    monkeypatch.setattr("app.window.autostart.zainstaluj", lambda: wywolania.append("zainstaluj"))
-    monkeypatch.setattr("app.window.autostart.odinstaluj", lambda: wywolania.append("odinstaluj"))
-
-    okno._checkbox_autostart.setChecked(True)
-
-    assert wywolania == ["zainstaluj"]
-
-
-def test_odznaczenie_checkboxa_odinstalowuje_autostart(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.window.autostart.czy_zainstalowany", lambda: True)
-    _app()
-    okno = _okno(tmp_path)
-    wywolania = []
-    monkeypatch.setattr("app.window.autostart.zainstaluj", lambda: wywolania.append("zainstaluj"))
-    monkeypatch.setattr("app.window.autostart.odinstaluj", lambda: wywolania.append("odinstaluj"))
-
-    okno._checkbox_autostart.setChecked(False)
-
-    assert wywolania == ["odinstaluj"]
-
-
-def test_blad_zmiany_autostartu_cofa_checkbox_i_pokazuje_ostrzezenie(tmp_path, monkeypatch):
-    import subprocess
-
-    _app()
-    okno = _okno(tmp_path)
-
-    def _rzuc():
-        raise subprocess.CalledProcessError(1, "schtasks")
-
-    monkeypatch.setattr("app.window.autostart.zainstaluj", _rzuc)
-    wywolania_ostrzezenia = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: wywolania_ostrzezenia.append(a))
-
-    okno._checkbox_autostart.setChecked(True)
-
-    assert not okno._checkbox_autostart.isChecked()  # cofniete po nieudanej probie
-    assert wywolania_ostrzezenia
