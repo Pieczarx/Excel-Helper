@@ -171,25 +171,35 @@ class GlowneOkno(QMainWindow):
         self._etykieta_aktualizacji.setText(f"Dostępna nowa wersja {wydanie.wersja}")
         self._pasek_aktualizacji.show()
 
-    def _na_brak_nowszej_wersji(self) -> None:
+    def _na_brak_nowszej_wersji(self, wersja_wykryta: str) -> None:
         # brak_nowszej/blad_sprawdzania leca przy KAZDYM sprawdzeniu (takze cichym, automatycznym
         # przy starcie) - popup pokazujemy tylko, jesli to sprawdzenie wywolal user recznie z menu
-        # konta.
+        # konta. Pokazujemy TEZ wersje, ktora appka faktycznie wykryla jako najnowsza na GitHubie -
+        # jesli to nie zgadza sie z tym, co naprawde tam wisi, to dowod na blad w porownaniu wersji
+        # (np. zle dane z API), nie w samej sieci/polaczeniu.
         if self._sprawdzanie_reczne:
             self._sprawdzanie_reczne = False
-            QMessageBox.information(self, "Brak aktualizacji", "Masz już najnowszą wersję aplikacji.")
+            QMessageBox.information(
+                self, "Brak aktualizacji",
+                f"Masz już najnowszą wersję aplikacji.\n\nTwoja wersja: {WERSJA}\n"
+                f"Najnowsza wykryta na GitHubie: {wersja_wykryta}",
+            )
 
-    def _na_blad_sprawdzania_aktualizacji(self) -> None:
+    def _na_blad_sprawdzania_aktualizacji(self, powod: str) -> None:
         # Celowo OSOBNY komunikat od _na_brak_nowszej_wersji - "nie udalo sie sprawdzic" to co
         # innego niz "sprawdzono, jest aktualna", myline tych dwoch wprowadzalo w blad (appka
         # mowila "masz najnowsza wersje" nawet wtedy, gdy zapytanie do GitHuba sie nie powiodlo).
+        # `powod` to surowy typ+tresc wyjatku Pythona (patrz aktualizacje.py) - pokazujemy go
+        # wprost, zamiast zgadywac na slepo co lokalnie zawiodlo (limit zapytan? SSL? cos innego?).
         if self._sprawdzanie_reczne:
             self._sprawdzanie_reczne = False
-            QMessageBox.warning(
-                self, "Nie udało się sprawdzić aktualizacji",
+            tresc = (
                 "Nie udało się połączyć z GitHubem, żeby sprawdzić dostępność nowej wersji. "
-                "Sprawdź połączenie z internetem i spróbuj ponownie.",
+                "Sprawdź połączenie z internetem i spróbuj ponownie."
             )
+            if powod:
+                tresc += f"\n\nSzczegóły: {powod}"
+            QMessageBox.warning(self, "Nie udało się sprawdzić aktualizacji", tresc)
 
     def _na_klik_zainstaluj(self) -> None:
         self._przycisk_zainstaluj.setEnabled(False)

@@ -142,16 +142,17 @@ def test_klik_sprawdz_aktualizacje_ustawia_flage_i_uruchamia_sprawdzenie(tmp_pat
     assert wywolania == [(WERSJA, REPO_GITHUB)]
 
 
-def test_brak_nowszej_po_recznym_sprawdzeniu_pokazuje_komunikat(tmp_path, monkeypatch):
+def test_brak_nowszej_po_recznym_sprawdzeniu_pokazuje_komunikat_z_wykryta_wersja(tmp_path, monkeypatch):
     _app()
     okno = _okno(tmp_path)
     okno._na_klik_sprawdz_aktualizacje()  # ustawia _sprawdzanie_reczne
     wywolania = []
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: wywolania.append(a))
 
-    okno._na_brak_nowszej_wersji()
+    okno._na_brak_nowszej_wersji("1.2.3")
 
     assert wywolania
+    assert "1.2.3" in wywolania[0][-1]  # tresc komunikatu pokazuje wykryta wersje
     assert okno._sprawdzanie_reczne is False
 
 
@@ -162,21 +163,22 @@ def test_brak_nowszej_po_cichym_sprawdzeniu_nic_nie_pokazuje(tmp_path, monkeypat
     wywolania = []
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: wywolania.append(a))
 
-    okno._na_brak_nowszej_wersji()
+    okno._na_brak_nowszej_wersji("1.2.3")
 
     assert not wywolania
 
 
-def test_blad_sprawdzania_po_recznym_sprawdzeniu_pokazuje_komunikat(tmp_path, monkeypatch):
+def test_blad_sprawdzania_po_recznym_sprawdzeniu_pokazuje_komunikat_z_powodem(tmp_path, monkeypatch):
     _app()
     okno = _okno(tmp_path)
     okno._na_klik_sprawdz_aktualizacje()  # ustawia _sprawdzanie_reczne
     wywolania = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: wywolania.append(a))
 
-    okno._na_blad_sprawdzania_aktualizacji()
+    okno._na_blad_sprawdzania_aktualizacji("URLError: <urlopen error [Errno 11001] getaddrinfo failed>")
 
     assert wywolania
+    assert "getaddrinfo failed" in wywolania[0][-1]
     assert okno._sprawdzanie_reczne is False
 
 
@@ -187,7 +189,7 @@ def test_blad_sprawdzania_po_cichym_sprawdzeniu_nic_nie_pokazuje(tmp_path, monke
     wywolania = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: wywolania.append(a))
 
-    okno._na_blad_sprawdzania_aktualizacji()
+    okno._na_blad_sprawdzania_aktualizacji("cos tam")
 
     assert not wywolania
 

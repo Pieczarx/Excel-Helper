@@ -113,10 +113,27 @@ def test_pobierz_blad_sieci_zwraca_none_nie_rzuca(monkeypatch):
     assert pobierz_najnowsze_wydanie(repo="ktos/repo") is None
 
 
+def test_pobierz_z_powodem_zwraca_typ_i_tresc_wyjatku(monkeypatch):
+    """To jest sedno diagnostyki pokazywanej userowi po ręcznym sprawdzeniu (window.py) - zamiast
+    po cichu połykać wyjątek, appka ma pokazać dokładnie co poszło nie tak (limit zapytań? SSL?
+    coś lokalnego na komputerze usera?), zamiast zgadywać na ślepo."""
+    def _rzuc(*a, **k):
+        raise URLError("HTTP Error 403: rate limit exceeded")
+
+    monkeypatch.setattr("app.aktualizacje.urllib.request.urlopen", _rzuc)
+
+    wydanie, powod = aktualizacje._pobierz_najnowsze_wydanie_z_powodem("ktos/repo")
+
+    assert wydanie is None
+    assert powod == "URLError: <urlopen error HTTP Error 403: rate limit exceeded>"
+
+
 def test_sprawdzarka_emituje_sygnal_gdy_jest_nowsza_wersja(monkeypatch):
     _app()
     wydanie = Wydanie(tag="v2.0.0", wersja="2.0.0", url_zip="http://x/v2.0.0.zip")
-    monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: wydanie)
+    monkeypatch.setattr(
+        "app.aktualizacje._pobierz_najnowsze_wydanie_z_powodem", lambda repo=None: (wydanie, None)
+    )
     sprawdzarka = SprawdzarkaAktualizacji()
     odebrane = []
     sprawdzarka.znaleziono_nowsza.connect(odebrane.append)
@@ -129,7 +146,9 @@ def test_sprawdzarka_emituje_sygnal_gdy_jest_nowsza_wersja(monkeypatch):
 def test_sprawdzarka_nie_emituje_gdy_wersja_aktualna(monkeypatch):
     _app()
     wydanie = Wydanie(tag="1.0.1", wersja="1.0.1", url_zip="http://x/1.0.1.zip")
-    monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: wydanie)
+    monkeypatch.setattr(
+        "app.aktualizacje._pobierz_najnowsze_wydanie_z_powodem", lambda repo=None: (wydanie, None)
+    )
     sprawdzarka = SprawdzarkaAktualizacji()
     odebrane = []
     sprawdzarka.znaleziono_nowsza.connect(odebrane.append)
@@ -144,7 +163,9 @@ def test_sprawdzarka_nie_emituje_gdy_wersja_aktualna(monkeypatch):
 def test_sprawdzarka_emituje_brak_nowszej_gdy_wersja_aktualna(monkeypatch):
     _app()
     wydanie = Wydanie(tag="1.0.1", wersja="1.0.1", url_zip="http://x/1.0.1.zip")
-    monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: wydanie)
+    monkeypatch.setattr(
+        "app.aktualizacje._pobierz_najnowsze_wydanie_z_powodem", lambda repo=None: (wydanie, None)
+    )
     sprawdzarka = SprawdzarkaAktualizacji()
     odebrane = []
     sprawdzarka.brak_nowszej.connect(lambda: odebrane.append(True))
@@ -158,15 +179,18 @@ def test_sprawdzarka_emituje_blad_gdy_sprawdzenie_sie_nie_powiodlo(monkeypatch):
     """Celowo OSOBNY sygnal od brak_nowszej - "nie udalo sie sprawdzic" (offline, timeout, limit
     zapytan GitHub API...) to co innego niz "sprawdzono, appka jest aktualna". Zgloszony blad:
     appka mylila te dwa wyniki i mowila "masz najnowsza wersje" nawet gdy zapytanie zawiodlo."""
-    monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: None)
+    monkeypatch.setattr(
+        "app.aktualizacje._pobierz_najnowsze_wydanie_z_powodem",
+        lambda repo=None: (None, "URLError: brak polaczenia"),
+    )
     _app()
     sprawdzarka = SprawdzarkaAktualizacji()
     brak_nowszej = []
     blad = []
     sprawdzarka.brak_nowszej.connect(lambda: brak_nowszej.append(True))
-    sprawdzarka.blad_sprawdzania.connect(lambda: blad.append(True))
+    sprawdzarka.blad_sprawdzania.connect(blad.append)
 
     sprawdzarka.sprawdz_w_tle("1.0.1", repo="ktos/repo")
 
-    assert _poczekaj_az(lambda: blad == [True])
+    assert _poczekaj_az(lambda: blad == ["URLError: brak polaczenia"])
     assert brak_nowszej == []

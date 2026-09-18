@@ -14,7 +14,6 @@ import json
 import threading
 import urllib.request
 from dataclasses import dataclass
-from urllib.error import URLError
 
 from PySide6.QtCore import QObject, Signal
 
@@ -47,10 +46,20 @@ def czy_nowsza(wersja_zdalna: str, wersja_lokalna: str) -> bool:
 def pobierz_najnowsze_wydanie(repo: str | None = None) -> Wydanie | None:
     """Zwraca informacje o najnowszym wydaniu z GitHub Releases, albo None jeśli repo nie jest
     skonfigurowane, albo sprawdzenie się nie powiodło (offline, brak releases, limit zapytań
-    GitHub API...) - nigdy nie rzuca wyjątku, to ma być cichy check w tle."""
+    GitHub API...) - nigdy nie rzuca wyjątku, to ma być cichy check w tle. Patrz
+    _pobierz_najnowsze_wydanie_z_powodem, jeśli akurat zależy Ci na tym, CO dokładnie zawiodło."""
+    wydanie, _powod = _pobierz_najnowsze_wydanie_z_powodem(repo)
+    return wydanie
+
+
+def _pobierz_najnowsze_wydanie_z_powodem(repo: str | None) -> tuple[Wydanie | None, str | None]:
+    """Jak pobierz_najnowsze_wydanie, ale przy porażce zwraca też czytelny opis wyjątku (typ +
+    treść) zamiast po cichu go połykać - do pokazania w UI po ręcznym sprawdzeniu (patrz
+    SprawdzarkaAktualizacji/window.py), żeby nie zgadywać na ślepo, co dokładnie nie zadziałało
+    (limit zapytań? SSL? coś lokalnego na komputerze usera?), tylko zobaczyć to wprost."""
     repo = repo if repo is not None else REPO_GITHUB
     if not repo:
-        return None
+        return None, "Synchronizacja z GitHubem nie jest skonfigurowana."
     try:
         with urllib.request.urlopen(
             f"https://api.github.com/repos/{repo}/releases/latest", timeout=_TIMEOUT_SEKUND
@@ -66,9 +75,9 @@ def pobierz_najnowsze_wydanie(repo: str | None = None) -> Wydanie | None:
             wersja=tag.lstrip("vV"),
             url_zip=f"https://github.com/{repo}/archive/refs/tags/{tag}.zip",
             url_exe=url_exe,
-        )
-    except (URLError, KeyError, ValueError, TimeoutError, OSError):
-        return None
+        ), None
+    except Exception as exc:  # celowo szerokie - to ma pokazac DOKLADNIE co zawiodlo, nie ukrywac
+        return None, f"{type(exc).__name__}: {exc}"
 
 
 class SprawdzarkaAktualizacji(QObject):
@@ -86,17 +95,20 @@ class SprawdzarkaAktualizacji(QObject):
     ręcznym kliknięciu "Sprawdź aktualizacje" w menu konta), nie ta klasa."""
 
     znaleziono_nowsza = Signal(object)  # Wydanie
-    brak_nowszej = Signal()
-    blad_sprawdzania = Signal()
+    brak_nowszej = Signal(str)  # wersja WYKRYTA jako najnowsza na GitHubie (do wyswietlenia -
+    # patrz window.py: jesli to, co appka tu pokaze, nie zgadza sie z tym, co faktycznie jest
+    # opublikowane, to dowod na blad w samym porownaniu wersji/w danych z GitHuba, nie w sieci)
+    blad_sprawdzania = Signal(str)  # opis wyjatku (typ + tresc) - patrz
+    # _pobierz_najnowsze_wydanie_z_powodem, pusty string jesli z jakiegos powodu nic nie zlapano
 
     def sprawdz_w_tle(self, wersja_lokalna: str, repo: str | None = None) -> None:
         threading.Thread(target=self._sprawdz, args=(wersja_lokalna, repo), daemon=True).start()
 
     def _sprawdz(self, wersja_lokalna: str, repo: str | None) -> None:
-        wydanie = pobierz_najnowsze_wydanie(repo)
+        wydanie, powod = _pobierz_najnowsze_wydanie_z_powodem(repo)
         if wydanie is None:
-            self.blad_sprawdzania.emit()
+            self.blad_sprawdzania.emit(powod or "")
         elif czy_nowsza(wydanie.wersja, wersja_lokalna):
             self.znaleziono_nowsza.emit(wydanie)
         else:
-            self.brak_nowszej.emit()
+            self.brak_nowszej.emit(wydanie.wersja)
