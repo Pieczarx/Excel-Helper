@@ -133,6 +133,7 @@ class GlowneOkno(QMainWindow):
         self._sprawdzarka_aktualizacji = SprawdzarkaAktualizacji()
         self._sprawdzarka_aktualizacji.znaleziono_nowsza.connect(self._na_znaleziono_nowsza_wersje)
         self._sprawdzarka_aktualizacji.brak_nowszej.connect(self._na_brak_nowszej_wersji)
+        self._sprawdzarka_aktualizacji.blad_sprawdzania.connect(self._na_blad_sprawdzania_aktualizacji)
         self._sprawdzarka_aktualizacji.sprawdz_w_tle(WERSJA, REPO_GITHUB)
 
     def _zbuduj_pasek_aktualizacji(self) -> QWidget:
@@ -171,11 +172,24 @@ class GlowneOkno(QMainWindow):
         self._pasek_aktualizacji.show()
 
     def _na_brak_nowszej_wersji(self) -> None:
-        # brak_nowszej leci przy KAZDYM sprawdzeniu (takze cichym, automatycznym przy starcie) -
-        # popup pokazujemy tylko, jesli to sprawdzenie wywolal user recznie z menu konta.
+        # brak_nowszej/blad_sprawdzania leca przy KAZDYM sprawdzeniu (takze cichym, automatycznym
+        # przy starcie) - popup pokazujemy tylko, jesli to sprawdzenie wywolal user recznie z menu
+        # konta.
         if self._sprawdzanie_reczne:
             self._sprawdzanie_reczne = False
             QMessageBox.information(self, "Brak aktualizacji", "Masz już najnowszą wersję aplikacji.")
+
+    def _na_blad_sprawdzania_aktualizacji(self) -> None:
+        # Celowo OSOBNY komunikat od _na_brak_nowszej_wersji - "nie udalo sie sprawdzic" to co
+        # innego niz "sprawdzono, jest aktualna", myline tych dwoch wprowadzalo w blad (appka
+        # mowila "masz najnowsza wersje" nawet wtedy, gdy zapytanie do GitHuba sie nie powiodlo).
+        if self._sprawdzanie_reczne:
+            self._sprawdzanie_reczne = False
+            QMessageBox.warning(
+                self, "Nie udało się sprawdzić aktualizacji",
+                "Nie udało się połączyć z GitHubem, żeby sprawdzić dostępność nowej wersji. "
+                "Sprawdź połączenie z internetem i spróbuj ponownie.",
+            )
 
     def _na_klik_zainstaluj(self) -> None:
         self._przycisk_zainstaluj.setEnabled(False)

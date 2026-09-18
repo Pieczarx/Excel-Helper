@@ -154,13 +154,19 @@ def test_sprawdzarka_emituje_brak_nowszej_gdy_wersja_aktualna(monkeypatch):
     assert _poczekaj_az(lambda: odebrane == [True])
 
 
-def test_sprawdzarka_emituje_brak_nowszej_gdy_sprawdzenie_sie_nie_powiodlo(monkeypatch):
+def test_sprawdzarka_emituje_blad_gdy_sprawdzenie_sie_nie_powiodlo(monkeypatch):
+    """Celowo OSOBNY sygnal od brak_nowszej - "nie udalo sie sprawdzic" (offline, timeout, limit
+    zapytan GitHub API...) to co innego niz "sprawdzono, appka jest aktualna". Zgloszony blad:
+    appka mylila te dwa wyniki i mowila "masz najnowsza wersje" nawet gdy zapytanie zawiodlo."""
     monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: None)
     _app()
     sprawdzarka = SprawdzarkaAktualizacji()
-    odebrane = []
-    sprawdzarka.brak_nowszej.connect(lambda: odebrane.append(True))
+    brak_nowszej = []
+    blad = []
+    sprawdzarka.brak_nowszej.connect(lambda: brak_nowszej.append(True))
+    sprawdzarka.blad_sprawdzania.connect(lambda: blad.append(True))
 
     sprawdzarka.sprawdz_w_tle("1.0.1", repo="ktos/repo")
 
-    assert _poczekaj_az(lambda: odebrane == [True])
+    assert _poczekaj_az(lambda: blad == [True])
+    assert brak_nowszej == []

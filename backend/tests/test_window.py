@@ -167,6 +167,31 @@ def test_brak_nowszej_po_cichym_sprawdzeniu_nic_nie_pokazuje(tmp_path, monkeypat
     assert not wywolania
 
 
+def test_blad_sprawdzania_po_recznym_sprawdzeniu_pokazuje_komunikat(tmp_path, monkeypatch):
+    _app()
+    okno = _okno(tmp_path)
+    okno._na_klik_sprawdz_aktualizacje()  # ustawia _sprawdzanie_reczne
+    wywolania = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: wywolania.append(a))
+
+    okno._na_blad_sprawdzania_aktualizacji()
+
+    assert wywolania
+    assert okno._sprawdzanie_reczne is False
+
+
+def test_blad_sprawdzania_po_cichym_sprawdzeniu_nic_nie_pokazuje(tmp_path, monkeypatch):
+    _app()
+    okno = _okno(tmp_path)
+    okno._sprawdzanie_reczne = False
+    wywolania = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: wywolania.append(a))
+
+    okno._na_blad_sprawdzania_aktualizacji()
+
+    assert not wywolania
+
+
 def test_klik_zainstaluj_uruchamia_instalacje_w_tle_i_blokuje_przycisk(tmp_path, monkeypatch):
     _app()
     okno = _okno(tmp_path)

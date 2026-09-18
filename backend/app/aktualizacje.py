@@ -20,7 +20,7 @@ from PySide6.QtCore import QObject, Signal
 
 REPO_GITHUB: str | None = "Pieczarx/Excel-Helper"
 
-_TIMEOUT_SEKUND = 4
+_TIMEOUT_SEKUND = 10
 
 
 @dataclass
@@ -74,20 +74,29 @@ def pobierz_najnowsze_wydanie(repo: str | None = None) -> Wydanie | None:
 class SprawdzarkaAktualizacji(QObject):
     """Sprawdza w osobnym wątku (zapytanie sieciowe), żeby nie mrozić startu okna.
 
-    `brak_nowszej` emitowany jest przy KAŻDYM sprawdzeniu, które nie znalazło nowszej wersji
-    (także przy cichym sprawdzeniu automatycznym na starcie) - to window.py decyduje, czy komuś
-    faktycznie o tym powiedzieć (np. tylko po ręcznym kliknięciu "Sprawdź aktualizacje" w menu
-    konta), nie ta klasa."""
+    Trzy możliwe wyniki sprawdzenia, każdy jako osobny sygnał - `brak_nowszej` NIE jest tym samym
+    co "zapytanie się nie powiodło" (`blad_sprawdzania`): to pierwsze znaczy "sprawdziliśmy, masz
+    najnowszą wersję", drugie "nie udało się sprawdzić w ogóle" (offline, timeout, limit zapytań
+    GitHub API...) - pokazanie tego pierwszego komunikatu przy faktycznej porażce zapytania
+    myliłoby użytkownika, że appka jest aktualna, mimo że wcale tego nie ustalono (zgłoszone: po
+    ręcznym sprawdzeniu appka twierdziła "masz najnowszą wersję", mimo że nowsza realnie była
+    opublikowana - przyczyną było dokładnie to pomylenie dwóch różnych wyników). Oba sygnały
+    (`brak_nowszej`/`blad_sprawdzania`) lecą przy KAŻDYM sprawdzeniu, także cichym automatycznym
+    na starcie - to window.py decyduje, czy komuś faktycznie o tym powiedzieć (np. tylko po
+    ręcznym kliknięciu "Sprawdź aktualizacje" w menu konta), nie ta klasa."""
 
     znaleziono_nowsza = Signal(object)  # Wydanie
     brak_nowszej = Signal()
+    blad_sprawdzania = Signal()
 
     def sprawdz_w_tle(self, wersja_lokalna: str, repo: str | None = None) -> None:
         threading.Thread(target=self._sprawdz, args=(wersja_lokalna, repo), daemon=True).start()
 
     def _sprawdz(self, wersja_lokalna: str, repo: str | None) -> None:
         wydanie = pobierz_najnowsze_wydanie(repo)
-        if wydanie is not None and czy_nowsza(wydanie.wersja, wersja_lokalna):
+        if wydanie is None:
+            self.blad_sprawdzania.emit()
+        elif czy_nowsza(wydanie.wersja, wersja_lokalna):
             self.znaleziono_nowsza.emit(wydanie)
         else:
             self.brak_nowszej.emit()
