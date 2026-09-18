@@ -11,8 +11,10 @@ from app.aktualizator import (
     BladInstalacji,
     Instalator,
     _podmien_pliki,
+    _PROB_URUCHOMIENIA,
     _znajdz_katalog_backend,
     posprzataj_poprzednia_wersje,
+    uruchom_ponownie,
     zainstaluj,
     zainstaluj_wydanie,
     zainstaluj_zamrozona,
@@ -250,6 +252,66 @@ def test_posprzataj_poprzednia_wersje_usuwa_odsuniety_plik(tmp_path):
 
 def test_posprzataj_poprzednia_wersje_bez_niczego_do_posprzatania_nie_rzuca(tmp_path):
     posprzataj_poprzednia_wersje(tmp_path / "Excel Helper.exe")
+
+
+class _FalszywyProces:
+    """Udaje subprocess.Popen(): .poll() zwraca None dopoki proces "dziala", a kod wyjscia po
+    tym, jak niby padl (symuluje crash swiezo skopiowanego .exe przy starciu z Defenderem)."""
+
+    def __init__(self, kod_wyjscia: int | None):
+        self._kod_wyjscia = kod_wyjscia
+
+    def poll(self):
+        return self._kod_wyjscia
+
+
+def test_uruchom_ponownie_w_trybie_zamrozonym_odpala_ten_sam_exe_raz_gdy_dziala(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.aktualizator.czy_zamrozona", lambda: True)
+    monkeypatch.setattr("app.aktualizator.time.sleep", lambda _: None)
+    monkeypatch.setattr("app.aktualizator.sys.executable", str(tmp_path / "ExcelHelper.exe"))
+    wywolania = []
+    monkeypatch.setattr(
+        "app.aktualizator.subprocess.Popen",
+        lambda argumenty: (wywolania.append(argumenty), _FalszywyProces(None))[1],
+    )
+
+    uruchom_ponownie()
+
+    assert wywolania == [[str((tmp_path / "ExcelHelper.exe").resolve())]]
+
+
+def test_uruchom_ponownie_ponawia_gdy_swiezo_skopiowany_exe_pada_od_razu(tmp_path, monkeypatch):
+    """Reprodukuje wyscig z Windows Defenderem (patrz docstring uruchom_ponownie): pierwsza proba
+    odpalenia swiezo podmienionego .exe pada natychmiast (Defender skanuje nierozpoznany plik) -
+    druga, chwile pozniej, juz sie udaje. uruchom_ponownie powinno samo sprobowac ponownie."""
+    monkeypatch.setattr("app.aktualizator.czy_zamrozona", lambda: True)
+    monkeypatch.setattr("app.aktualizator.time.sleep", lambda _: None)
+    monkeypatch.setattr("app.aktualizator.sys.executable", str(tmp_path / "ExcelHelper.exe"))
+    procesy = iter([_FalszywyProces(1), _FalszywyProces(None)])
+    wywolania = []
+    monkeypatch.setattr(
+        "app.aktualizator.subprocess.Popen",
+        lambda argumenty: (wywolania.append(argumenty), next(procesy))[1],
+    )
+
+    uruchom_ponownie()
+
+    assert len(wywolania) == 2
+
+
+def test_uruchom_ponownie_poddaje_sie_po_wyczerpaniu_wszystkich_prob(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.aktualizator.czy_zamrozona", lambda: True)
+    monkeypatch.setattr("app.aktualizator.time.sleep", lambda _: None)
+    monkeypatch.setattr("app.aktualizator.sys.executable", str(tmp_path / "ExcelHelper.exe"))
+    wywolania = []
+    monkeypatch.setattr(
+        "app.aktualizator.subprocess.Popen",
+        lambda argumenty: (wywolania.append(argumenty), _FalszywyProces(1))[1],
+    )
+
+    uruchom_ponownie()
+
+    assert len(wywolania) == _PROB_URUCHOMIENIA
 
 
 def test_zainstaluj_wydanie_w_trybie_zrodlowym_woła_zainstaluj(tmp_path, monkeypatch):

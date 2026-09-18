@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -166,11 +167,45 @@ def zainstaluj_wydanie(wydanie: Wydanie, katalog_aplikacji: Path = KATALOG_APLIK
     zainstaluj(wydanie.url_zip, katalog_aplikacji)
 
 
+_PROB_URUCHOMIENIA = 3
+# Zmierzone empirycznie (reprodukcja krachu z brakujacym pyexpat, bez ingerencji AV): sam import
+# skonczony bledem ModuleNotFoundError potrzebowal ~4.9s zeby przejsc caly lancuch importow
+# (uruchom_gui -> app.main -> ... -> openpyxl) i wywolac nasz excepthook (patrz uruchom_gui.py).
+# 1.0s (poprzednia wartosc) bylo za krotkie - proces byl jeszcze "zywy" (poll() zwracal None) w
+# momencie sprawdzenia, wiec petla ponownych prob konczyla sie przedwczesnie "sukcesem", mimo ze
+# proces i tak zaraz potem padal. 6.0s daje wygodny margines nad zmierzonym czasem, tym bardziej ze
+# w realnych warunkach (skanowanie przez antywirusa swiezego pliku) krach moze manifestowac sie
+# jeszcze wolniej.
+_CZAS_NA_CRASH_SEKUND = 6.0
+_ODSTEP_MIEDZY_PROBAMI_SEKUND = 1.5
+
+
 def uruchom_ponownie(katalog_aplikacji: Path = KATALOG_APLIKACJI) -> None:
     """Odpala nowy proces appki - ma być wywołane PO zainstaluj_wydanie() i tuż przed zamknięciem
-    bieżącego procesu, żeby nowy (podmieniony) kod/plik faktycznie się załadował."""
+    bieżącego procesu, żeby nowy (podmieniony) kod/plik faktycznie się załadował.
+
+    W trybie zamrożonym plik .exe w tym momencie dopiero co został zapisany na dysk (patrz
+    zainstaluj_zamrozona()) i jeszcze nigdy nie był uruchamiany - Windows Defender potrafi
+    zablokować/skanować taki świeży, nierozpoznany plik dokładnie w chwili jego pierwszego
+    uruchomienia, co może dać bootloaderowi PyInstallera urwany odczyt archiwum onefile
+    (obserwowane: "ModuleNotFoundError: No module named 'pyexpat'" - pyexpat jest skompilowanym
+    modułem, więc reaguje na to najbardziej widocznie, choć realnie ryzyko dotyczy całego archiwum).
+    Ten sam plik uruchomiony ręcznie chwilę później działa bez problemu, bo Defender ma już wynik
+    skanowania w cache'u - stąd próba ponownego odpalenia, jeśli nowy proces padnie natychmiast.
+
+    Krach appki okienkowej (console=False) sam w sobie NIE konczy procesu od razu - domyslnie
+    PyInstaller pokazuje blokujace okno dialogowe z tracebackiem, wiec ten kod polega na wlasnym
+    excepthooku appki (uruchom_gui.py) i disable_windowed_traceback=True (excel_helper.spec), zeby
+    krach faktycznie zakonczyl proces (i dal sie wykryc przez poll() ponizej), zamiast wisiec na
+    dialogu w nieskonczonosc."""
     if czy_zamrozona():
-        subprocess.Popen([str(Path(sys.executable).resolve())])
+        nowy_exe = str(Path(sys.executable).resolve())
+        for _ in range(_PROB_URUCHOMIENIA):
+            proces = subprocess.Popen([nowy_exe])
+            time.sleep(_CZAS_NA_CRASH_SEKUND)
+            if proces.poll() is None:
+                return
+            time.sleep(_ODSTEP_MIEDZY_PROBAMI_SEKUND)
         return
     subprocess.Popen([sys.executable, "-m", "app.main"], cwd=str(katalog_aplikacji))
 

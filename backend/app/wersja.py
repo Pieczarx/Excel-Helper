@@ -1,9 +1,18 @@
 """Numer wersji aplikacji i changelog pokazywany po kliknięciu w stopkę okna."""
 from __future__ import annotations
 
-WERSJA = "1.0.11"
+WERSJA = "1.0.12"
 
 CHANGELOG: list[dict] = [
+    {
+        "wersja": "1.0.12",
+        "data": "2026-09-18",
+        "zmiany": [
+            "Naprawiono błąd, przez który automatyczny restart po aktualizacji czasem kończył się "
+            "oknem błędu (\"No module named pyexpat\") zamiast działającą aplikacją - mechanizm "
+            "ponawiania prób nie wykrywał poprawnie takiego nieudanego uruchomienia",
+        ],
+    },
     {
         "wersja": "1.0.11",
         "data": "2026-09-18",

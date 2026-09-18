@@ -4,7 +4,46 @@ PyInstaller potrzebuje skryptu top-level (nie modułu odpalanego przez `python -
 w całej aplikacji są bezwzględne względem pakietu `app` (np. `from app.config import ...`) - ten
 plik musi więc leżeć w `backend/`, obok folderu `app/`, żeby ten pakiet był importowalny.
 """
-from app.main import main
+import os
+import sys
+import traceback
+from pathlib import Path
+
+
+def _zaloguj_i_zakoncz(typ, wartosc, tb) -> None:
+    """Wlasny excepthook - MUSI byc ustawiony PRZED importem ponizej, bo to on jest w stanie
+    zlapac nieobslozony wyjatek nawet przy starcie (np. brakujacy modul przy imporcie app.main).
+
+    Appka jest okienkowa (console=False) - domyslnie PyInstaller na nieobsluzony wyjatek pokazuje
+    natywne okno dialogowe z tracebackiem i NIE konczy przy tym procesu, dopoki ktos go recznie nie
+    zamknie. To psulo retry w aktualizator.uruchom_ponownie(): swiezo podmieniony .exe po
+    samoaktualizacji potrafi sie wywalic przy pierwszym starcie (np. antywirus skanuje w tle
+    nierozpoznany plik w trakcie samorozpakowywania onefile - obserwowane jako
+    "ModuleNotFoundError: No module named 'pyexpat'"), ale subprocess.Popen(...).poll() widzial
+    taki proces jako dalej "zywy" (czekal na dialog), wiec petla ponownych prob uznawala to za
+    sukces i nigdy faktycznie nie probowala ponownie - uzytkownik zostawal z samym dialogiem bledu
+    zamiast dzialajacej appki (stary proces juz sie tymczasem zamknal).
+
+    Zamiast dialogu: loguje do pliku obok danych appki i konczy proces NATYCHMIAST (os._exit, nie
+    sys.exit - gwarancja, ze nic dalej nie zdazy zablokowac procesu), zeby retry mogl faktycznie
+    zobaczyc krach i sprobowac ponownie."""
+    try:
+        katalog_danych = (
+            Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
+            else Path(__file__).resolve().parent
+        ) / "data"
+        katalog_danych.mkdir(parents=True, exist_ok=True)
+        with open(katalog_danych / "crash.log", "a", encoding="utf-8") as plik:
+            traceback.print_exception(typ, wartosc, tb, file=plik)
+            plik.write("\n")
+    except Exception:
+        pass
+    os._exit(1)
+
+
+sys.excepthook = _zaloguj_i_zakoncz
+
+from app.main import main  # noqa: E402 - musi byc PO ustawieniu excepthooka wyzej
 
 if __name__ == "__main__":
     main()

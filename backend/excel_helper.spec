@@ -22,6 +22,13 @@
 # zaobserwowane realnie: "ModuleNotFoundError: No module named 'pyexpat'" w appce zainstalowanej
 # przez WŁASNY mechanizm samoaktualizacji appki (choć nie w exe budowanym i uruchamianym wprost
 # tutaj) - PyInstaller zwykle wykrywa to sam, ale nie zawsze niezawodnie, więc wymuszamy jawnie.
+#
+# disable_windowed_traceback=True: appka okienkowa (console=False) domyślnie pokazuje natywne okno
+# dialogowe z tracebackiem na nieobsłużony wyjątek i NIE kończy przy tym procesu, dopóki ktoś go
+# ręcznie nie zamknie - co psuło wykrywanie krachu w aktualizator.uruchom_ponownie() (poll() widział
+# taki "zawieszony na dialogu" proces jako wciąż żywy, więc retry nigdy się nie uruchamiał). Własny
+# excepthook w uruchom_gui.py już i tak loguje krach do pliku i kończy proces od razu - to ustawienie
+# to tylko dodatkowe zabezpieczenie, gdyby coś ominęło ten hook.
 from PyInstaller.utils.hooks import collect_all
 
 datas = [("assets/icon.ico", "assets")]
@@ -62,7 +69,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    disable_windowed_traceback=False,
+    disable_windowed_traceback=True,
     argv_emulation=False,
     icon="assets/icon.ico",
 )
