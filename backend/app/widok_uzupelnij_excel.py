@@ -13,7 +13,6 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -51,6 +50,7 @@ from app.styl import (
     CZERWIEN,
     CZERWIEN_GLEBOKA,
     CZERWIEN_TLO,
+    Checkbox,
     EtykietaSciezki,
     KORAL,
     KORAL_GLEBOKI,
@@ -68,7 +68,6 @@ from app.styl import (
     ZIELEN_GLEBOKA,
     ZIELEN_TLO,
     przycisk_pill,
-    styl_checkboxa,
 )
 
 ETYKIETY_KATEGORII = {
@@ -625,9 +624,7 @@ class WidokUzupelnijExcel(QWidget):
         self._uklad_tresci.addWidget(self._strefa)
         self._uklad_tresci.addSpacing(12)
 
-        self._checkbox_aktualizuj = QCheckBox("Aktualizuj uzupełnione dane")
-        self._checkbox_aktualizuj.setCursor(Qt.PointingHandCursor)
-        self._checkbox_aktualizuj.setStyleSheet(styl_checkboxa(ATRAMENT))
+        self._checkbox_aktualizuj = Checkbox("Aktualizuj uzupełnione dane")
         self._uklad_tresci.addWidget(self._checkbox_aktualizuj)
 
         podpowiedz_aktualizuj = QLabel(

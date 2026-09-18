@@ -17,6 +17,10 @@ CHANGELOG: list[dict] = [
             "czasu lokalnego",
             "Z nagłówka wpisanej faktury usunięto miesiąc - jest on i tak widoczny po rozwinięciu, "
             "przy każdym obiekcie osobno",
+            "Naprawiono błąd uniemożliwiający ponowne otwarcie aplikacji po zamknięciu okna - "
+            "kolejne próby uruchomienia mnożyły procesy w tle zamiast pokazać już działające okno",
+            "Zaznaczony checkbox \"Aktualizuj uzupełnione dane\" pokazuje teraz zielony ptaszek "
+            "zamiast wypełniać się na zielono",
         ],
     },
     {

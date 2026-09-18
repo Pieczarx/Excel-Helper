@@ -16,6 +16,7 @@ from app.firmy import FIRMY
 from app.historia_faktur_base import PustyMagazynHistorii
 from app.kontroler import Kontroler
 from app.kontroler_faktur import KontrolerFaktur
+from app.pojedyncza_instancja import czy_juz_dziala_i_aktywowano, uruchom_serwer
 from app.sciezki import czy_zamrozona, katalog_zasobow
 from app.store import AlertStore
 from app.store_base import MagazynAlertow
@@ -67,6 +68,12 @@ def main() -> None:
     app.setQuitOnLastWindowClosed(False)  # dalej dziala w tray po zamknieciu okna (X)
     app.setWindowIcon(QIcon(str(ICON_PATH)))  # fallback ikony dla okna glownego i wszystkich dialogow
 
+    # Appka dalej dziala w tray po zamknieciu okna (linijka wyzej) - bez tej blokady kazda kolejna
+    # proba uruchomienia (np. podwojny klik w .exe) odpalalaby NOWY, niezalezny proces zamiast
+    # pokazac juz dzialajace okno. Druga+ instancja konczy sie od razu, bez budowania reszty appki.
+    if czy_juz_dziala_i_aktywowano():
+        return
+
     store = _poczatkowy_magazyn()
     try:
         # Jedna para (Kontroler, KontrolerFaktur) na firmę - własny plik Excela/folder faktur
@@ -82,6 +89,16 @@ def main() -> None:
             for firma in FIRMY
         ]
         okno = GlowneOkno(pary)
+
+        def _na_sygnal_pokaz() -> None:
+            okno.show()
+            okno.raise_()
+            okno.activateWindow()
+
+        # Referencja musi przezyc cala funkcje (patrz pojedyncza_instancja.py) - stad zmienna, nie
+        # tylko wywolanie bez przypisania.
+        serwer_instancji = uruchom_serwer(_na_sygnal_pokaz)
+
         # Tray śledzi na razie tylko pierwszą (domyślną) firmę - rozszerzenie o wszystkie
         # to osobna decyzja, poza zakresem dzisiejszego przygotowania gruntu pod drugą firmę.
         tray = TrayApp(pary[0][1], okno)

@@ -4,9 +4,9 @@ https://claude.ai/code/artifact/a3e7afab-2360-4ba1-8492-1315af72224c (trzeci war
 rundach poprawek - jaśniejsze tło strony i biała, nie zielona, strefa upuszczania faktur)."""
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QFontMetrics
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 PAPIER = "#FAFAF6"
 POWIERZCHNIA = "#FFFFFF"
@@ -68,19 +68,72 @@ def przycisk_pill(tlo: str, tekst: str, tlo_hover: str, obwodka: str | None = No
     )
 
 
-def styl_checkboxa(tekst_kolor: str, rozmiar: str = "13px") -> str:
-    """QSS dla checkboksa z w pełni własnym (nie systemowym) kwadracikiem - natywny wskaźnik na
-    Windows potrafi się różnie przerysować, kiedy widget jest tylko częściowo widoczny w
-    przewijanym obszarze (górna/dolna krawędź robi się cieńsza/jaśniejsza) - rysujemy go więc sami
-    przez ::indicator zamiast polegać na stylu systemu."""
-    return (
-        f"QCheckBox {{ background: transparent; color: {tekst_kolor}; font-size: {rozmiar}; "
-        f"font-weight: 600; font-family: {CZCIONKA_NAGLOWEK}; spacing: 8px; }}"
-        "QCheckBox::indicator { width: 16px; height: 16px; border-radius: 4px; "
-        f"border: 1.5px solid {LINIA_MOCNA}; background: {POWIERZCHNIA}; }}"
-        f"QCheckBox::indicator:hover {{ border-color: {ZIELEN}; }}"
-        f"QCheckBox::indicator:checked {{ background: {ZIELEN}; border-color: {ZIELEN}; }}"
-    )
+class Checkbox(QWidget):
+    """Checkbox z w pełni własnym kwadracikiem (QLabel z ptaszkiem "✓"), nie systemowym
+    wskaźnikiem - dwa niezależne powody, żeby go tu nie używać:
+
+    1. Natywny wskaźnik potrafi się różnie przerysować, kiedy widget jest tylko częściowo
+       widoczny w przewijanym obszarze (górna/dolna krawędź robi się cieńsza/jaśniejsza).
+    2. QSS może w pełni przejąć rysowanie `QCheckBox::indicator` (np. samo tło/ramkę), ale wtedy
+       Qt przestaje też dorysowywać natywny ptaszek - próba "biały kwadracik + zielone tło po
+       zaznaczeniu" wychodziła jako martwe, wypełnione pole bez żadnego ptaszka.
+
+    Zamiast tego zaznaczenie po prostu podmienia tekst/kolor małej etykiety na zielony "✓" -
+    dokładnie ten sam język (kolorowy unicode w QLabel), jakiego appka już używa gdzie indziej
+    (np. znaczniki sukcesu/błędu w widok_uzupelnij_excel.py)."""
+
+    toggled = Signal(bool)
+
+    def __init__(self, tekst: str, tekst_kolor: str = ATRAMENT, rozmiar: str = "13px", parent=None):
+        super().__init__(parent)
+        self._zaznaczony = False
+        self.setCursor(Qt.PointingHandCursor)
+
+        uklad = QHBoxLayout(self)
+        uklad.setContentsMargins(0, 0, 0, 0)
+        uklad.setSpacing(8)
+
+        self._kwadracik = QLabel()
+        self._kwadracik.setFixedSize(16, 16)
+        self._kwadracik.setAlignment(Qt.AlignCenter)
+        uklad.addWidget(self._kwadracik)
+
+        self._etykieta = QLabel(tekst)
+        self._etykieta.setStyleSheet(
+            f"background: transparent; color: {tekst_kolor}; font-size: {rozmiar}; "
+            f"font-weight: 600; font-family: {CZCIONKA_NAGLOWEK}; border: none;"
+        )
+        uklad.addWidget(self._etykieta)
+        uklad.addStretch()
+
+        self._odswiez_kwadracik()
+
+    def isChecked(self) -> bool:  # noqa: N802 (nazwa metody zgodna z QCheckBox, nie do zmiany)
+        return self._zaznaczony
+
+    def setChecked(self, zaznaczony: bool) -> None:  # noqa: N802
+        if zaznaczony == self._zaznaczony:
+            return
+        self._zaznaczony = zaznaczony
+        self._odswiez_kwadracik()
+        self.toggled.emit(self._zaznaczony)
+
+    def mousePressEvent(self, event) -> None:
+        self.setChecked(not self._zaznaczony)
+        super().mousePressEvent(event)
+
+    def _odswiez_kwadracik(self) -> None:
+        if self._zaznaczony:
+            self._kwadracik.setText("✓")
+            self._kwadracik.setStyleSheet(
+                f"background: {POWIERZCHNIA}; color: {ZIELEN}; border: 1.5px solid {ZIELEN}; "
+                "border-radius: 4px; font-size: 11px; font-weight: 700;"
+            )
+        else:
+            self._kwadracik.setText("")
+            self._kwadracik.setStyleSheet(
+                f"background: {POWIERZCHNIA}; border: 1.5px solid {LINIA_MOCNA}; border-radius: 4px;"
+            )
 
 
 class EtykietaSciezki(QLabel):
