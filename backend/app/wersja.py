@@ -1,9 +1,20 @@
 """Numer wersji aplikacji i changelog pokazywany po kliknięciu w stopkę okna."""
 from __future__ import annotations
 
-WERSJA = "1.0.1"
+WERSJA = "1.0.2"
 
 CHANGELOG: list[dict] = [
+    {
+        "wersja": "1.0.2",
+        "data": "2026-09-18",
+        "zmiany": [
+            "Folder \"Do aktualizacji\" zastąpiony checkboksem \"Aktualizuj uzupełnione dane\" pod "
+            "polem do wrzucania faktur - wszystkie faktury trafiają teraz w jedno miejsce, a to, "
+            "czy nadpisać już wpisane dane, wybiera się zaznaczeniem tej opcji przed kliknięciem "
+            "\"Uzupełnij Excel\"",
+            "Zakładka drugiej firmy (UK) oznaczona jako wkrótce dostępna",
+        ],
+    },
     {
         "wersja": "1.0.1",
         "data": "2026-09-18",

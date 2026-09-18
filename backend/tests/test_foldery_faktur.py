@@ -3,7 +3,6 @@ from pathlib import Path
 
 from app.faktura_reader import KAT_PPE_NIEZNALEZIONE
 from app.foldery_faktur import (
-    NAZWA_DO_AKTUALIZACJI,
     NAZWA_DO_WPISANIA,
     NAZWA_PRZETWORZONE,
     przetworz_folder,
@@ -39,18 +38,16 @@ def _kopia_excel(tmp_path) -> Path:
 def _drzewo_z_folderami_obiektow(tmp_path, ppe_lista: list[str]) -> Path:
     root = tmp_path / "Faktury"
     (root / NAZWA_DO_WPISANIA).mkdir(parents=True)
-    (root / NAZWA_DO_AKTUALIZACJI).mkdir(parents=True)
     for ppe in ppe_lista:
         (root / f"Obiekt ({ppe})").mkdir()
     return root
 
 
-def test_upewnij_sie_ze_foldery_istnieja_tworzy_obie_pary(tmp_path):
+def test_upewnij_sie_ze_foldery_istnieja_tworzy_do_wpisania(tmp_path):
     root = tmp_path / "Faktury"
     upewnij_sie_ze_foldery_istnieja(root)
 
     assert (root / NAZWA_DO_WPISANIA / NAZWA_PRZETWORZONE).is_dir()
-    assert (root / NAZWA_DO_AKTUALIZACJI / NAZWA_PRZETWORZONE).is_dir()
 
 
 def test_upewnij_sie_ze_foldery_istnieja_jest_idempotentne(tmp_path):
@@ -166,19 +163,24 @@ def test_plik_o_nieznanym_formacie_zostaje_na_miejscu(tmp_path):
     assert not (folder / NAZWA_PRZETWORZONE / "zla_faktura.pdf").exists()
 
 
-def test_przetworz_foldery_faktur_obsluguje_oba_foldery_z_odpowiednim_nadpisywaniem(tmp_path):
+def test_przetworz_foldery_faktur_respektuje_flage_nadpisywania(tmp_path):
+    """Jeden folder 'Do wpisania' - to `nadpisuj` (checkbox 'Aktualizuj uzupełnione dane' w UI)
+    decyduje, czy wolno nadpisać komórki, które już mają dane, nie osobny folder."""
     excel = _kopia_excel(tmp_path)
     root = _drzewo_z_folderami_obiektow(tmp_path, PPE_20_PAZDZIERNIKA)
     shutil.copy(FAKTURA_20_PAZDZIERNIKA, root / NAZWA_DO_WPISANIA / "D 01.pdf")
 
-    wynik = przetworz_foldery_faktur(excel, root)
+    wynik = przetworz_foldery_faktur(excel, root, nadpisuj=False)
 
-    assert NAZWA_DO_WPISANIA in wynik and NAZWA_DO_AKTUALIZACJI in wynik
-    assert len(wynik[NAZWA_DO_WPISANIA]) == 1
-    assert all(w.zapisano for w in wynik[NAZWA_DO_WPISANIA][0].wyniki)
-    assert wynik[NAZWA_DO_AKTUALIZACJI] == []
+    assert len(wynik) == 1
+    assert all(w.zapisano for w in wynik[0].wyniki)
 
-    # druga faktura tej samej treści w "Do aktualizacji" powinna nadpisac (komorki juz wypelnione)
-    shutil.copy(FAKTURA_20_PAZDZIERNIKA, root / NAZWA_DO_AKTUALIZACJI / "D 01.pdf")
-    wynik2 = przetworz_foldery_faktur(excel, root)
-    assert all(w.zapisano for w in wynik2[NAZWA_DO_AKTUALIZACJI][0].wyniki)
+    # ta sama faktura raz jeszcze, bez nadpisywania - komorki juz wypelnione, wiec pomijane
+    shutil.copy(FAKTURA_20_PAZDZIERNIKA, root / NAZWA_DO_WPISANIA / "D 01.pdf")
+    wynik_bez_nadpisania = przetworz_foldery_faktur(excel, root, nadpisuj=False)
+    assert not any(w.zapisano for w in wynik_bez_nadpisania[0].wyniki)
+
+    # z zaznaczonym "Aktualizuj uzupelnione dane" (nadpisuj=True) powinno nadpisac
+    shutil.copy(FAKTURA_20_PAZDZIERNIKA, root / NAZWA_DO_WPISANIA / "D 01.pdf")
+    wynik_z_nadpisaniem = przetworz_foldery_faktur(excel, root, nadpisuj=True)
+    assert all(w.zapisano for w in wynik_z_nadpisaniem[0].wyniki)

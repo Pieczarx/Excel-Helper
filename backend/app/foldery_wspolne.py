@@ -1,11 +1,14 @@
 """Stałe i pomocnicze funkcje dot. drzewa folderów faktur, współdzielone między foldery_faktur.py
-(kolejka 'Do wpisania'/'Do aktualizacji') i foldery_obiektow.py (routing po PPE do folderów
-obiektów) - wydzielone osobno, żeby te dwa moduły nie importowały się nawzajem."""
+(kolejka 'Do wpisania') i foldery_obiektow.py (routing po PPE do folderów obiektów) - wydzielone
+osobno, żeby te dwa moduły nie importowały się nawzajem."""
 from __future__ import annotations
 
 from pathlib import Path
 
 NAZWA_DO_WPISANIA = "Do wpisania"
+# Appka już nie tworzy ani nie przetwarza tego folderu (zastąpiony checkboksem "Aktualizuj
+# uzupełnione dane" w UI) - nazwa zostaje tylko do wykluczenia starych folderów, patrz
+# foldery_obiektow.WYKLUCZ.
 NAZWA_DO_AKTUALIZACJI = "Do aktualizacji"
 NAZWA_PRZETWORZONE = "Przetworzone"
 

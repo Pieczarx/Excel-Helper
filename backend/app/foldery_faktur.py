@@ -1,16 +1,21 @@
-"""Dwa foldery robocze do wpisywania faktur - patrz [[project_excelhelper_invoice_import_feasibility]]:
+"""Folder roboczy "Do wpisania" do wpisywania faktur - patrz
+[[project_excelhelper_invoice_import_feasibility]].
 
-- "Do wpisania"    - wpisuje tylko do pustych komórek (nadpisuj=False)
-- "Do aktualizacji" - wolno nadpisać istniejące dane (nadpisuj=True)
+Wszystkie faktury (przeciągnięte, wybrane w oknie dialogowym albo wrzucone ręcznie do folderu)
+przechodzą przez ten jeden folder. To, czy wolno nadpisać komórki, które już mają dane, ustala się
+w UI checkboksem "Aktualizuj uzupełnione dane" (patrz widok_uzupelnij_excel.py) w chwili
+przetwarzania - nie ma już osobnego folderu "Do aktualizacji" na to (NAZWA_DO_AKTUALIZACJI w
+foldery_wspolne.py zostaje TYLKO jako nazwa do wykluczenia w foldery_obiektow.py, na wypadek gdyby
+u kogoś ten stary folder wciąż leżał na dysku z poprzedniej wersji appki - nic już go nie tworzy
+ani nie przetwarza).
 
-To jest cały mechanizm "skąd wziąć faktury" - użytkownik ręcznie wrzuca PDF-y do właściwego
-folderu, nie ma żadnego zgadywania po nazwie/dacie pliku. Po przetworzeniu, jeśli faktura zapisała
-choć jedną pozycję do Excela, plik trafia (kopiowany, patrz foldery_obiektow.py) do folderów
-obiektów, których dotyczy, i znika stąd - nie zostaje kopia w "Do wpisania"/"Do aktualizacji".
-Plik, który w ogóle nie zapisał niczego (ani jedna pozycja nie dopasowała PPE do wiersza w
-arkuszu), wędruje do podfolderu "Przetworzone" jak dawniej - nie ma dokąd go skopiować, a bez
-śladu byłby stratą. Plik, którego w ogóle nie udało się rozpoznać jako fakturę dystrybucyjną,
-zostaje w miejscu (nie w Przetworzone) - to sygnał dla użytkownika, że coś w nim wymaga uwagi.
+Po przetworzeniu, jeśli faktura zapisała choć jedną pozycję do Excela, plik trafia (kopiowany,
+patrz foldery_obiektow.py) do folderów obiektów, których dotyczy, i znika stąd - nie zostaje kopia
+w "Do wpisania". Plik, który w ogóle nie zapisał niczego (ani jedna pozycja nie dopasowała PPE do
+wiersza w arkuszu), wędruje do podfolderu "Przetworzone" jak dawniej - nie ma dokąd go skopiować,
+a bez śladu byłby stratą. Plik, którego w ogóle nie udało się rozpoznać jako fakturę
+dystrybucyjną, zostaje w miejscu (nie w Przetworzone) - to sygnał dla użytkownika, że coś w nim
+wymaga uwagi.
 """
 from __future__ import annotations
 
@@ -20,7 +25,7 @@ from pathlib import Path
 
 from app.faktura_reader import NieRozpoznanoFaktury
 from app.foldery_obiektow import przenies_do_folderow_obiektow, zbuduj_mape_ppe_do_folderu
-from app.foldery_wspolne import NAZWA_DO_AKTUALIZACJI, NAZWA_DO_WPISANIA, NAZWA_PRZETWORZONE, wolna_sciezka_docelowa
+from app.foldery_wspolne import NAZWA_DO_WPISANIA, NAZWA_PRZETWORZONE, wolna_sciezka_docelowa
 from app.import_faktur import WynikWpisu, wpisz_fakture_do_arkusza
 from app.import_faktur_duze import wpisz_polaczone_pozycje_duze
 from app.import_faktur_oddana import wpisz_polaczone_pozycje_oddana
@@ -35,11 +40,10 @@ class WynikPrzetworzeniaPliku:
 
 
 def upewnij_sie_ze_foldery_istnieja(sciezka_faktur: str | Path) -> None:
-    """Tworzy 'Do wpisania'/'Do aktualizacji' (i ich podfoldery 'Przetworzone') pod wskazanym
-    folderem, jeśli jeszcze nie istnieją. Bezpieczne do wywołania wielokrotnie."""
+    """Tworzy 'Do wpisania' (i jego podfolder 'Przetworzone') pod wskazanym folderem, jeśli jeszcze
+    nie istnieje. Bezpieczne do wywołania wielokrotnie."""
     root = Path(sciezka_faktur)
-    for nazwa in (NAZWA_DO_WPISANIA, NAZWA_DO_AKTUALIZACJI):
-        (root / nazwa / NAZWA_PRZETWORZONE).mkdir(parents=True, exist_ok=True)
+    (root / NAZWA_DO_WPISANIA / NAZWA_PRZETWORZONE).mkdir(parents=True, exist_ok=True)
 
 
 def znajdz_faktury(folder: Path) -> list[Path]:
@@ -52,9 +56,9 @@ def znajdz_faktury(folder: Path) -> list[Path]:
 
 
 def dodaj_do_kolejki(sciezka_zrodlowa: str | Path, folder_docelowy: str | Path) -> Path:
-    """Kopiuje upuszczony/wybrany PDF do 'Do wpisania' albo 'Do aktualizacji' (kopia, nie
-    przeniesienie - upuszczenie pliku np. z załącznika e-maila nie powinno go stamtąd usuwać).
-    Kolizja nazwy z plikiem już czekającym w kolejce dostaje licznik, tak samo jak w 'Przetworzone'."""
+    """Kopiuje upuszczony/wybrany PDF do 'Do wpisania' (kopia, nie przeniesienie - upuszczenie
+    pliku np. z załącznika e-maila nie powinno go stamtąd usuwać). Kolizja nazwy z plikiem już
+    czekającym w kolejce dostaje licznik, tak samo jak w 'Przetworzone'."""
     folder_docelowy = Path(folder_docelowy)
     folder_docelowy.mkdir(parents=True, exist_ok=True)
     cel = wolna_sciezka_docelowa(folder_docelowy, Path(sciezka_zrodlowa).name)
@@ -125,13 +129,11 @@ def przetworz_folder(
 
 
 def przetworz_foldery_faktur(
-    sciezka_excel: str | Path, sciezka_faktur: str | Path
-) -> dict[str, list[WynikPrzetworzeniaPliku]]:
-    """Przetwarza po kolei 'Do wpisania' (bez nadpisywania) i 'Do aktualizacji' (z nadpisywaniem)
-    pod `sciezka_faktur`. To jest funkcja, którą docelowo wywoła przycisk 'Aktualizuj dane'."""
+    sciezka_excel: str | Path, sciezka_faktur: str | Path, nadpisuj: bool
+) -> list[WynikPrzetworzeniaPliku]:
+    """Przetwarza 'Do wpisania' pod `sciezka_faktur` - `nadpisuj` steruje tym, czy wolno nadpisać
+    komórki, które już mają dane (checkbox "Aktualizuj uzupełnione dane" w UI, patrz
+    widok_uzupelnij_excel.py). To jest funkcja, którą wywołuje przycisk 'Uzupełnij Excel'."""
     root = Path(sciezka_faktur)
     upewnij_sie_ze_foldery_istnieja(root)
-    return {
-        NAZWA_DO_WPISANIA: przetworz_folder(sciezka_excel, root / NAZWA_DO_WPISANIA, nadpisuj=False, sciezka_faktur_root=root),
-        NAZWA_DO_AKTUALIZACJI: przetworz_folder(sciezka_excel, root / NAZWA_DO_AKTUALIZACJI, nadpisuj=True, sciezka_faktur_root=root),
-    }
+    return przetworz_folder(sciezka_excel, root / NAZWA_DO_WPISANIA, nadpisuj=nadpisuj, sciezka_faktur_root=root)

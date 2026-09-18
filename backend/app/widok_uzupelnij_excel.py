@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -621,6 +622,25 @@ class WidokUzupelnijExcel(QWidget):
         self._strefa.pliki_upuszczone.connect(self._na_pliki_wybrane)
         self._strefa.przycisk_wybierz.clicked.connect(self._na_klik_wybierz_pliki)
         self._uklad_tresci.addWidget(self._strefa)
+        self._uklad_tresci.addSpacing(12)
+
+        self._checkbox_aktualizuj = QCheckBox("Aktualizuj uzupełnione dane")
+        self._checkbox_aktualizuj.setCursor(Qt.PointingHandCursor)
+        self._checkbox_aktualizuj.setStyleSheet(
+            f"QCheckBox {{ background: transparent; color: {ATRAMENT}; font-size: 13px; "
+            f"font-weight: 600; font-family: {CZCIONKA_NAGLOWEK}; spacing: 8px; }}"
+        )
+        self._uklad_tresci.addWidget(self._checkbox_aktualizuj)
+
+        podpowiedz_aktualizuj = QLabel(
+            "Domyślnie aplikacja pomija pozycje, które już mają dane w arkuszu - zaznacz, żeby je nadpisać."
+        )
+        podpowiedz_aktualizuj.setWordWrap(True)
+        podpowiedz_aktualizuj.setStyleSheet(
+            f"background: transparent; color: {STONOWANY}; font-size: 11.5px; font-family: {CZCIONKA_TEKST}; "
+            "margin-left: 26px;"
+        )
+        self._uklad_tresci.addWidget(podpowiedz_aktualizuj)
         self._uklad_tresci.addSpacing(10)
 
         self._kontener_kolejki = QWidget()
@@ -688,9 +708,9 @@ class WidokUzupelnijExcel(QWidget):
         self._odswiez_historie(self._kontroler.historia_ostatnich())
 
     def showEvent(self, event) -> None:
-        # Uzytkownik moze recznie wrzucic plik do "Do wpisania"/"Do aktualizacji" przez Eksplorator
-        # (np. celowo do "Do aktualizacji", zeby wymusic nadpisanie) - odswiezamy kolejke za kazdym
-        # razem, gdy ta zakladka staje sie widoczna, zeby przycisk "Uzupelnij Excel" to zauwazyl.
+        # Uzytkownik moze recznie wrzucic plik do "Do wpisania" przez Eksplorator - odswiezamy
+        # kolejke za kazdym razem, gdy ta zakladka staje sie widoczna, zeby przycisk
+        # "Uzupelnij Excel" to zauwazyl.
         super().showEvent(event)
         self._odswiez_kolejke(self._kontroler.kolejka())
 
@@ -830,7 +850,7 @@ class WidokUzupelnijExcel(QWidget):
                 "później nadpisany, gdy Excel sam zapisze swoją (nieaktualną) wersję pliku.",
             )
             return
-        self._kontroler.przetworz_w_tle(sciezka_excel)
+        self._kontroler.przetworz_w_tle(sciezka_excel, nadpisuj=self._checkbox_aktualizuj.isChecked())
 
     def _na_klik_sprawdz(self) -> None:
         self._odswiez_kolejke(self._kontroler.kolejka())

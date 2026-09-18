@@ -152,8 +152,8 @@ def test_pokazanie_widoku_odswieza_kolejke(tmp_path):
     assert widok._uklad_kolejki.count() == 0
 
     # plik podrzucony "z zewnatrz appki", bez przejscia przez dodaj_pliki_do_kolejki
-    (tmp_path / "Faktury" / "Do aktualizacji").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "Faktury" / "Do aktualizacji" / "D 03.pdf").write_bytes(b"%PDF-1.4")
+    (tmp_path / "Faktury" / "Do wpisania").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "Faktury" / "Do wpisania" / "D 03.pdf").write_bytes(b"%PDF-1.4")
 
     widok.show()
 
@@ -218,6 +218,27 @@ def test_klik_uzupelnij_bez_excela_pokazuje_ostrzezenie_i_nic_nie_uruchamia(tmp_
 
     assert wywolania
     assert not wywolano_przetworz
+
+
+def test_klik_uzupelnij_przekazuje_stan_checkboxa_aktualizuj(tmp_path, monkeypatch):
+    _app()
+    kontroler = _kontroler(tmp_path)
+    kontroler.ustaw_folder(tmp_path / "Faktury")
+    widok = WidokUzupelnijExcel(kontroler, _kontroler_excela(tmp_path, z_plikiem=True))
+    plik = tmp_path / "D 01.pdf"
+    plik.write_bytes(b"%PDF-1.4")
+    kontroler.dodaj_pliki_do_kolejki([plik])
+
+    wywolania = []
+    monkeypatch.setattr(kontroler, "przetworz_w_tle", lambda *a, **k: wywolania.append((a, k)))
+
+    assert not widok._checkbox_aktualizuj.isChecked()  # domyslnie odznaczony
+    widok._na_klik_uzupelnij()
+    assert wywolania[-1][1] == {"nadpisuj": False}
+
+    widok._checkbox_aktualizuj.setChecked(True)
+    widok._na_klik_uzupelnij()
+    assert wywolania[-1][1] == {"nadpisuj": True}
 
 
 def test_zakonczone_przetwarzanie_pokazuje_sekcje_uzupelnione_dane(tmp_path):

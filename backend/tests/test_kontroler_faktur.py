@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 
-from app.foldery_faktur import NAZWA_DO_AKTUALIZACJI, NAZWA_DO_WPISANIA
+from app.foldery_faktur import NAZWA_DO_WPISANIA
 from app.historia_faktur import HistoriaFakturStore
 from app.kontroler_faktur import KontrolerFaktur
 
@@ -34,7 +34,7 @@ def _kopia_excel(tmp_path) -> Path:
     return cel
 
 
-def test_ustaw_folder_tworzy_podfoldery_i_zapamietuje_sciezke(tmp_path):
+def test_ustaw_folder_tworzy_podfolder_i_zapamietuje_sciezke(tmp_path):
     _app()
     with HistoriaFakturStore(tmp_path / "historia.db") as historia:
         kontroler = KontrolerFaktur(historia, config_path=tmp_path / "faktury_config.json")
@@ -43,7 +43,6 @@ def test_ustaw_folder_tworzy_podfoldery_i_zapamietuje_sciezke(tmp_path):
         kontroler.ustaw_folder(root)
 
         assert (root / NAZWA_DO_WPISANIA).is_dir()
-        assert (root / NAZWA_DO_AKTUALIZACJI).is_dir()
 
         # nowy kontroler z tym samym config_path powinien odtworzyc folder bez ponownego wywolania
         kontroler2 = KontrolerFaktur(historia, config_path=tmp_path / "faktury_config.json")
@@ -97,7 +96,7 @@ def test_przetworz_w_tle_zapisuje_do_historii_i_emituje_sygnaly(tmp_path):
         kontroler.zakonczono_przetwarzanie.connect(wyniki_koncowe.append)
         kontroler.historia_zmieniona.connect(historie.append)
 
-        kontroler.przetworz_w_tle(excel)
+        kontroler.przetworz_w_tle(excel, nadpisuj=False)
 
         assert _poczekaj_az(lambda: stany == [True, False])
         assert len(wyniki_koncowe[-1]) == 1
@@ -110,6 +109,34 @@ def test_przetworz_w_tle_zapisuje_do_historii_i_emituje_sygnaly(tmp_path):
         assert len(historie[-1]) == 1
         assert historie[-1][0].nazwa_pliku == "D 01.pdf"
         assert len(kontroler.historia_ostatnich()) == 1
+
+
+def test_przetworz_w_tle_respektuje_flage_nadpisuj(tmp_path):
+    """checkbox 'Aktualizuj uzupełnione dane' w UI (patrz widok_uzupelnij_excel.py) przekazuje się
+    aż tutaj - bez niego druga faktura o tej samej treści powinna zostać pominięta, z nim nadpisana."""
+    _app()
+    excel = _kopia_excel(tmp_path)
+    with HistoriaFakturStore(tmp_path / "historia.db") as historia:
+        kontroler = KontrolerFaktur(historia, config_path=tmp_path / "faktury_config.json")
+        kontroler.ustaw_folder(tmp_path / "Faktury")
+        kontroler.dodaj_pliki_do_kolejki([FAKTURA_20_PAZDZIERNIKA])
+
+        wyniki_koncowe = []
+        kontroler.zakonczono_przetwarzanie.connect(wyniki_koncowe.append)
+        kontroler.przetworz_w_tle(excel, nadpisuj=False)
+        assert _poczekaj_az(lambda: wyniki_koncowe)
+
+        kontroler.dodaj_pliki_do_kolejki([FAKTURA_20_PAZDZIERNIKA])
+        wyniki_koncowe.clear()
+        kontroler.przetworz_w_tle(excel, nadpisuj=False)
+        assert _poczekaj_az(lambda: wyniki_koncowe)
+        assert not any(w.zapisano for w in wyniki_koncowe[-1][0].wyniki)  # komorki juz wypelnione
+
+        kontroler.dodaj_pliki_do_kolejki([FAKTURA_20_PAZDZIERNIKA])
+        wyniki_koncowe.clear()
+        kontroler.przetworz_w_tle(excel, nadpisuj=True)
+        assert _poczekaj_az(lambda: wyniki_koncowe)
+        assert sum(1 for w in wyniki_koncowe[-1][0].wyniki if w.zapisano) == 5  # nadpisane
 
 
 def test_usun_z_historii_usuwa_wpis_i_emituje_zmiane(tmp_path):
@@ -152,6 +179,6 @@ def test_przetworz_bez_folderu_emituje_blad(tmp_path):
 
         bledy = []
         kontroler.blad.connect(bledy.append)
-        kontroler.przetworz_w_tle(excel)
+        kontroler.przetworz_w_tle(excel, nadpisuj=False)
 
         assert _poczekaj_az(lambda: bledy)

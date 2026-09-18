@@ -1,7 +1,7 @@
-"""Spina magazyn historii wpisanych faktur i przetwarzanie folderów 'Do wpisania'/'Do aktualizacji'
-pod jednym obiektem - analogicznie do Kontroler (kontroler.py, zakładka Weryfikacja), ale dla
-zakładki Uzupełnij Excel. QObject z tych samych powodów co Kontroler: przetwarzanie idzie w
-osobnym wątku (może potrwać, dużo PDF-ów), a Qt bezpiecznie kolejkuje sygnały do wątku GUI."""
+"""Spina magazyn historii wpisanych faktur i przetwarzanie folderu 'Do wpisania' pod jednym
+obiektem - analogicznie do Kontroler (kontroler.py, zakładka Weryfikacja), ale dla zakładki
+Uzupełnij Excel. QObject z tych samych powodów co Kontroler: przetwarzanie idzie w osobnym wątku
+(może potrwać, dużo PDF-ów), a Qt bezpiecznie kolejkuje sygnały do wątku GUI."""
 from __future__ import annotations
 
 import threading
@@ -11,7 +11,6 @@ from PySide6.QtCore import QObject, Signal
 
 from app.config import DEFAULT_FAKTURY_CONFIG_PATH, wczytaj_sciezke_faktur, zapisz_sciezke_faktur
 from app.foldery_faktur import (
-    NAZWA_DO_AKTUALIZACJI,
     NAZWA_DO_WPISANIA,
     WynikPrzetworzeniaPliku,
     dodaj_do_kolejki,
@@ -58,13 +57,11 @@ class KontrolerFaktur(QObject):
         self.kolejka_zmieniona.emit(self.kolejka())
 
     def kolejka(self) -> list[Path]:
-        """Faktury czekające w 'Do wpisania'/'Do aktualizacji' na to, żeby ktoś kliknął
-        'Uzupełnij Excel' - to jest cała "kolejka", nie osobny stan w pamięci."""
+        """Faktury czekające w 'Do wpisania' na to, żeby ktoś kliknął 'Uzupełnij Excel' - to jest
+        cała "kolejka", nie osobny stan w pamięci."""
         if self._folder is None:
             return []
-        return znajdz_faktury(self._folder / NAZWA_DO_WPISANIA) + znajdz_faktury(
-            self._folder / NAZWA_DO_AKTUALIZACJI
-        )
+        return znajdz_faktury(self._folder / NAZWA_DO_WPISANIA)
 
     def dodaj_pliki_do_kolejki(self, sciezki: list[str | Path]) -> None:
         """Kopiuje wskazane PDF-y (upuszczone albo wybrane w oknie dialogowym) do 'Do wpisania' -
@@ -94,18 +91,15 @@ class KontrolerFaktur(QObject):
         self._historia.usun(wpis_id)
         self.historia_zmieniona.emit(self._historia.ostatnie())
 
-    def przetworz_w_tle(self, sciezka_excel: str | Path) -> None:
-        threading.Thread(target=self._przetworz, args=(sciezka_excel,), daemon=True).start()
+    def przetworz_w_tle(self, sciezka_excel: str | Path, nadpisuj: bool) -> None:
+        threading.Thread(target=self._przetworz, args=(sciezka_excel, nadpisuj), daemon=True).start()
 
-    def _przetworz(self, sciezka_excel: str | Path) -> None:
+    def _przetworz(self, sciezka_excel: str | Path, nadpisuj: bool) -> None:
         self.w_trakcie.emit(True)
         try:
             if self._folder is None:
                 raise RuntimeError("Najpierw wybierz folder faktur.")
-            wyniki_per_folder = przetworz_foldery_faktur(sciezka_excel, self._folder)
-            wszystkie: list[WynikPrzetworzeniaPliku] = [
-                wynik for lista in wyniki_per_folder.values() for wynik in lista
-            ]
+            wszystkie: list[WynikPrzetworzeniaPliku] = przetworz_foldery_faktur(sciezka_excel, self._folder, nadpisuj)
             for wynik in wszystkie:
                 self._historia.zapisz(wynik.sciezka.name, wynik.wyniki, powod_odrzucenia=wynik.blad)
 

@@ -24,7 +24,9 @@ from app.import_faktur import WynikWpisu
 KAT_BRAK_FOLDERU_OBIEKTU = "brak_folderu_obiektu"
 
 # Foldery robocze/pomocnicze pod korzeniem drzewa faktur, które nie są folderami obiektów - nie
-# skanujemy ich w poszukiwaniu PPE w nazwie.
+# skanujemy ich w poszukiwaniu PPE w nazwie. NAZWA_DO_AKTUALIZACJI zostaje tu, mimo że appka już
+# go nie tworzy ani nie przetwarza (patrz foldery_faktur.py) - na wypadek starego folderu wciąż
+# leżącego na dysku z poprzedniej wersji, żeby dalej nie był mylnie traktowany jak folder obiektu.
 WYKLUCZ = {NAZWA_DO_WPISANIA, NAZWA_DO_AKTUALIZACJI, "Faktury powyżej 16"}
 
 _WZORZEC_PPE_W_NAZWIE = re.compile(r"\((\d+)\)$")
