@@ -95,29 +95,34 @@ def test_ustaw_magazyn_przelacza_i_odswieza(tmp_path):
         kontroler.zamknij()
 
 
-def test_czy_potrzebuje_logowania_false_gdy_brak_konfiguracji_supabase(tmp_path):
+def test_czy_potrzebuje_logowania_true_gdy_brak_lokalnego_pliku_supabase(tmp_path):
+    """Bez lokalnego pliku appka i tak uzywa wbudowanych domyslnych danych Supabase (patrz
+    config.wczytaj_konfiguracje_supabase) - login jest wiec dostepny/potrzebny, nie ukryty."""
     _app()
     with AlertStore(tmp_path / "alerts.db") as store:
         kontroler = Kontroler(
             store, config_path=tmp_path / "config.json", supabase_config_path=tmp_path / "brak_supabase.json"
         )
-        assert kontroler.czy_potrzebuje_logowania() is False
+        assert kontroler.czy_potrzebuje_logowania() is True
         kontroler.zamknij()
 
 
-def test_stan_synchronizacji_trzy_stany(tmp_path):
+def test_stan_synchronizacji_niezalogowany_z_wbudowanych_i_z_lokalnego_pliku(tmp_path):
+    """NIEZALOGOWANY wychodzi tak samo, czy konfiguracja Supabase bierze się z wbudowanych
+    domyślnych danych (brak lokalnego pliku), czy z realnego pliku - ZALOGOWANY patrz
+    test_email_zalogowanego_i_wyloguj."""
     _app()
     from app.config import zapisz_konfiguracje_supabase
 
     with AlertStore(tmp_path / "alerts.db") as store:
-        # 1. brak konfiguracji supabase w ogole
+        # 1. brak lokalnego pliku - wbudowane domyslne dane Supabase, magazyn lokalny (nie zalogowano)
         kontroler = Kontroler(
             store, config_path=tmp_path / "config.json", supabase_config_path=tmp_path / "brak.json"
         )
-        assert kontroler.stan_synchronizacji() == "NIESKONFIGUROWANY"
+        assert kontroler.stan_synchronizacji() == "NIEZALOGOWANY"
         kontroler.zamknij()
 
-    # 2. supabase skonfigurowany, ale magazyn to lokalny AlertStore (nie zalogowano)
+    # 2. lokalny plik konfiguracji Supabase, ale magazyn to lokalny AlertStore (nie zalogowano)
     supabase_config = tmp_path / "supabase2.json"
     zapisz_konfiguracje_supabase("https://x.supabase.co", "anon", supabase_config)
     with AlertStore(tmp_path / "alerts2.db") as store2:

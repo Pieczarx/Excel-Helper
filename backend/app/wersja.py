@@ -1,9 +1,20 @@
 """Numer wersji aplikacji i changelog pokazywany po kliknięciu w stopkę okna."""
 from __future__ import annotations
 
-WERSJA = "1.0.0"
+WERSJA = "1.0.1"
 
 CHANGELOG: list[dict] = [
+    {
+        "wersja": "1.0.1",
+        "data": "2026-09-18",
+        "zmiany": [
+            "Naprawiono logowanie na nowo zainstalowanej aplikacji - przycisk logowania czasem "
+            "się nie pokazywał na innym komputerze niż ten, na którym aplikacja była pierwotnie "
+            "skonfigurowana",
+            "Aplikacja uruchamia się teraz automatycznie razem z systemem, bez potrzeby ręcznego "
+            "włączania tej opcji",
+        ],
+    },
     {
         "wersja": "1.0.0",
         "data": "2026-09-16",

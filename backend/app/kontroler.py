@@ -92,14 +92,13 @@ class Kontroler(QObject):
         return self._obserwator is not None and self._obserwator.czy_plik_jest_teraz_otwarty()
 
     def stan_synchronizacji(self) -> str:
-        """"NIESKONFIGUROWANY" (Supabase w ogóle nieustawiony), "NIEZALOGOWANY" albo "ZALOGOWANY"."""
-        konfiguracja = wczytaj_konfiguracje_supabase(self._supabase_config_path)
-        if konfiguracja is None:
-            return "NIESKONFIGUROWANY"
+        """"NIEZALOGOWANY" albo "ZALOGOWANY" - konfiguracja Supabase (adres/klucz) jest zawsze
+        dostępna (wbudowane wartości domyślne, patrz config.wczytaj_konfiguracje_supabase), więc
+        jedyne, co tu się rozstrzyga, to czy TEN magazyn jest już zalogowaną sesją Supabase."""
         return "ZALOGOWANY" if isinstance(self._store, SupabaseAlertStore) else "NIEZALOGOWANY"
 
     def czy_potrzebuje_logowania(self) -> bool:
-        """True, jeśli Supabase jest skonfigurowany, ale ten magazyn jeszcze nie jest nim zalogowany."""
+        """True, jeśli ten magazyn jeszcze nie jest zalogowaną sesją Supabase."""
         return self.stan_synchronizacji() == "NIEZALOGOWANY"
 
     def email_zalogowanego(self) -> str | None:
@@ -117,11 +116,8 @@ class Kontroler(QObject):
         return email, haslo or ""
 
     def zaloguj_supabase(self, email: str, haslo: str, zapamietaj_haslo: bool = False) -> None:
-        """Może rzucić BledneDaneLogowania albo RuntimeError (brak konfiguracji) - obsługuje UI."""
-        konfiguracja = wczytaj_konfiguracje_supabase(self._supabase_config_path)
-        if konfiguracja is None:
-            raise RuntimeError("Synchronizacja Supabase nie jest skonfigurowana.")
-        url, anon_key = konfiguracja
+        """Może rzucić BledneDaneLogowania - obsługuje UI."""
+        url, anon_key = wczytaj_konfiguracje_supabase(self._supabase_config_path)
         nowy_store = supabase_zaloguj(url, anon_key, email, haslo, session_path=self._supabase_session_path)
 
         zapisz_ostatni_email(email, self._ostatni_login_path)

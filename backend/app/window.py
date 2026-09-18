@@ -369,11 +369,6 @@ class GlowneOkno(QMainWindow):
         # Stan logowania jest wspólny dla wszystkich firm - _kontroler_glowny jest tu tylko
         # źródłem prawdy do odczytu, żadna z jego metod poniżej niczego nie zmienia.
         stan = self._kontroler_glowny.stan_synchronizacji()
-        if stan == "NIESKONFIGUROWANY":
-            self._przycisk_zaloguj.hide()
-            self._przycisk_konto.hide()
-            return
-
         if stan == "ZALOGOWANY":
             self._przycisk_zaloguj.hide()
             email = self._kontroler_glowny.email_zalogowanego()

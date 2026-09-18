@@ -53,11 +53,7 @@ def _poczatkowy_magazyn() -> MagazynAlertow:
     żeby appka nigdy nie blokowała startu na oknie logowania. Użytkownik loguje się później,
     kiedy sam zechce, przyciskiem "Zaloguj" w pasku narzędzi. Jeden magazyn dzielony między
     WSZYSTKIE firmy (app/firmy.py) - logowanie/synchronizacja nie jest per firma, patrz window.py."""
-    konfiguracja = wczytaj_konfiguracje_supabase()
-    if konfiguracja is None:
-        return AlertStore()
-
-    url, anon_key = konfiguracja
+    url, anon_key = wczytaj_konfiguracje_supabase()
     magazyn = przywroc_sesje(url, anon_key)
     return magazyn if magazyn is not None else AlertStore()
 

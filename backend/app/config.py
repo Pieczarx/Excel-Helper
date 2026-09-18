@@ -13,6 +13,17 @@ DEFAULT_SUPABASE_CONFIG_PATH = _DATA_DIR / "supabase.json"
 DEFAULT_SUPABASE_SESSION_PATH = _DATA_DIR / "supabase_session.json"
 DEFAULT_OSTATNI_LOGIN_PATH = _DATA_DIR / "ostatni_login.json"
 
+# Wbudowane w aplikację dane projektu Supabase - anon_key jest z założenia kluczem PUBLICZNYM,
+# bezpiecznym do wbudowania w klienta (ochronę danych daje Row Level Security po stronie
+# Supabase, nie tajność klucza - dokładnie tak samo jak w apkach mobilnych/webowych). Bez tego
+# świeża instalacja appki (bez ręcznie stworzonego data/supabase.json) w ogóle nie pokazuje
+# przycisku logowania - patrz Kontroler.stan_synchronizacji().
+DOMYSLNY_SUPABASE_URL = "https://rcutqvqdzrumrbhslwap.supabase.co"
+DOMYSLNY_SUPABASE_ANON_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdXRxdnFkenJ1bXJiaHNsd2FwIiwicm9s"
+    "ZSI6ImFub24iLCJpYXQiOjE3ODc1MDI1ODIsImV4cCI6MjEwMzA3ODU4Mn0.zB6JjZeoAPUvC1nCkzXsHcbULy-dthRcAOE9w2HMAB8"
+)
+
 
 def _wczytaj_json(sciezka: str | Path) -> dict | None:
     sciezka = Path(sciezka)
@@ -52,12 +63,16 @@ def zapisz_sciezke_faktur(sciezka: str | Path, config_path: str | Path = DEFAULT
 
 def wczytaj_konfiguracje_supabase(
     config_path: str | Path = DEFAULT_SUPABASE_CONFIG_PATH,
-) -> tuple[str, str] | None:
-    """Zwraca (url, anon_key) albo None, jeśli synchronizacja Supabase nie jest skonfigurowana."""
+) -> tuple[str, str]:
+    """Zwraca (url, anon_key) - z lokalnego pliku, jeśli tam jest i jest kompletny, inaczej
+    wbudowane w aplikację wartości domyślne (patrz DOMYSLNY_SUPABASE_URL wyżej). Dzięki temu
+    synchronizacja/logowanie działa od razu na każdym komputerze, bez ręcznego tworzenia tego
+    pliku - lokalny plik służy tylko do NADPISANIA wbudowanych danych (np. inny projekt Supabase
+    do testów), nie do ich pierwszego skonfigurowania."""
     dane = _wczytaj_json(config_path)
-    if not dane or not dane.get("url") or not dane.get("anon_key"):
-        return None
-    return dane["url"], dane["anon_key"]
+    if dane and dane.get("url") and dane.get("anon_key"):
+        return dane["url"], dane["anon_key"]
+    return DOMYSLNY_SUPABASE_URL, DOMYSLNY_SUPABASE_ANON_KEY
 
 
 def zapisz_konfiguracje_supabase(

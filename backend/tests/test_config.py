@@ -1,4 +1,6 @@
 from app.config import (
+    DOMYSLNY_SUPABASE_ANON_KEY,
+    DOMYSLNY_SUPABASE_URL,
     usun_sesje_supabase,
     wczytaj_konfiguracje_supabase,
     wczytaj_ostatni_email,
@@ -45,8 +47,19 @@ def test_zapisz_i_wczytaj_sciezke_faktur(tmp_path):
     assert wczytaj_sciezke_faktur(config_path) == folder.resolve()
 
 
-def test_brak_konfiguracji_supabase_zwraca_none(tmp_path):
-    assert wczytaj_konfiguracje_supabase(tmp_path / "brak.json") is None
+def test_brak_pliku_konfiguracji_supabase_zwraca_wbudowane_domyslne(tmp_path):
+    """Bez lokalnego pliku appka ma dzialac 'z pudelka' - patrz zgloszenie: swieza instalacja bez
+    reki utworzonego supabase.json w ogole nie pokazywala przycisku logowania."""
+    assert wczytaj_konfiguracje_supabase(tmp_path / "brak.json") == (
+        DOMYSLNY_SUPABASE_URL, DOMYSLNY_SUPABASE_ANON_KEY,
+    )
+
+
+def test_niekompletny_plik_konfiguracji_supabase_tez_zwraca_wbudowane_domyslne(tmp_path):
+    sciezka = tmp_path / "supabase.json"
+    sciezka.write_text('{"url": "https://x.supabase.co"}')  # brak anon_key
+
+    assert wczytaj_konfiguracje_supabase(sciezka) == (DOMYSLNY_SUPABASE_URL, DOMYSLNY_SUPABASE_ANON_KEY)
 
 
 def test_zapisz_i_wczytaj_konfiguracje_supabase(tmp_path):
