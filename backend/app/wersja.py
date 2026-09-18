@@ -1,23 +1,18 @@
 """Numer wersji aplikacji i changelog pokazywany po kliknięciu w stopkę okna."""
 from __future__ import annotations
 
-WERSJA = "1.0.7"
+WERSJA = "1.0.6"
 
 CHANGELOG: list[dict] = [
     {
-        "wersja": "1.0.7",
+        "wersja": "1.0.6",
         "data": "2026-09-18",
         "zmiany": [
             "Naprawiono mylący komunikat przy sprawdzaniu aktualizacji - gdy nie udawało się "
             "połączyć z GitHubem, aplikacja błędnie pokazywała \"masz już najnowszą wersję\" "
             "zamiast poinformować, że sprawdzenie się nie powiodło",
-        ],
-    },
-    {
-        "wersja": "1.0.6",
-        "data": "2026-09-18",
-        "zmiany": [
-            "Wydanie testowe - bez zmian funkcjonalnych (weryfikacja mechanizmu aktualizacji)",
+            "Komunikat \"brak aktualizacji\" pokazuje teraz też, jaką wersję aplikacja faktycznie "
+            "wykryła jako najnowszą na GitHubie",
         ],
     },
     {
