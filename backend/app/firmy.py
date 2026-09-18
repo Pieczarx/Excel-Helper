@@ -27,6 +27,7 @@ class Firma:
     config_path: Path
     faktury_config_path: Path
     akcent: str  # kolor znacznika/podkreślenia w przełączniku firm (window.py) - własna tożsamość firmy
+    aktywna: bool = True  # False = zakładka widoczna, ale wyszarzona i nieklikalna (patrz window.py)
 
 
 FIRMY: list[Firma] = [
@@ -43,5 +44,8 @@ FIRMY: list[Firma] = [
         config_path=_DATA_DIR / "config_uk.json",
         faktury_config_path=_DATA_DIR / "faktury_config_uk.json",
         akcent=KORAL,
+        # Czeka na plik Excela i faktury od użytkownika (patrz docstring modułu) - do tego czasu
+        # zakładka zostaje wyszarzona/nieklikalna, żeby nikt nie trafił przypadkiem na pustą firmę.
+        aktywna=False,
     ),
 ]

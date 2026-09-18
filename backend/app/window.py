@@ -33,6 +33,7 @@ from app.styl import (
     CZCIONKA_NAGLOWEK,
     CZCIONKA_TEKST,
     LINIA,
+    LINIA_MOCNA,
     PAPIER,
     POWIERZCHNIA,
     POWIERZCHNIA_MIEKKA,
@@ -249,8 +250,13 @@ class GlowneOkno(QMainWindow):
 
             przycisk = QPushButton(firma.nazwa)
             przycisk.setFlat(True)
-            przycisk.setCursor(Qt.PointingHandCursor)
-            przycisk.clicked.connect(lambda _checked=False, i=indeks: self._przelacz_firme(i))
+            if firma.aktywna:
+                przycisk.setCursor(Qt.PointingHandCursor)
+                przycisk.clicked.connect(lambda _checked=False, i=indeks: self._przelacz_firme(i))
+            else:
+                przycisk.setEnabled(False)
+                przycisk.setCursor(Qt.ArrowCursor)
+                przycisk.setToolTip("Wkrótce dostępne")
             wiersz.addWidget(przycisk)
             uklad_k.addLayout(wiersz)
 
@@ -272,18 +278,22 @@ class GlowneOkno(QMainWindow):
 
     def _odswiez_style_firm(self, aktywna_id: str) -> None:
         for firma, _kontroler, _kf in self._pary:
-            aktywna = firma.id == aktywna_id
+            # "wybrana" = to TA zakladka jest teraz otwarta; "firma.aktywna" (osobne pole, patrz
+            # app/firmy.py) = czy firma w ogole da sie wybrac - wylaczona firma (np. dzis UK) jest
+            # zawsze stylowana jak nieaktywna, niezaleznie od aktywna_id.
+            wybrana = firma.aktywna and firma.id == aktywna_id
             widgety = self._widgety_firm[firma.id]
             widgety["kropka"].setStyleSheet(
-                f"background: {firma.akcent if aktywna else LINIA}; border-radius: 4px; border: none;"
+                f"background: {firma.akcent if wybrana else LINIA}; border-radius: 4px; border: none;"
             )
             widgety["przycisk"].setStyleSheet(
                 f"QPushButton {{ background: transparent; border: none; padding: 0; "
-                f"color: {ATRAMENT if aktywna else BLADY}; font-size: 14.5px; "
-                f"font-weight: {'700' if aktywna else '600'}; font-family: {CZCIONKA_NAGLOWEK}; }}"
+                f"color: {ATRAMENT if wybrana else BLADY}; font-size: 14.5px; "
+                f"font-weight: {'700' if wybrana else '600'}; font-family: {CZCIONKA_NAGLOWEK}; }}"
+                f"QPushButton:disabled {{ color: {LINIA_MOCNA}; }}"
             )
             widgety["kreska"].setStyleSheet(
-                f"background: {firma.akcent if aktywna else 'transparent'}; border-radius: 2px; border: none;"
+                f"background: {firma.akcent if wybrana else 'transparent'}; border-radius: 2px; border: none;"
             )
 
     def _zbuduj_strone_firmy(
