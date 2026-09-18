@@ -139,3 +139,28 @@ def test_sprawdzarka_nie_emituje_gdy_wersja_aktualna(monkeypatch):
     QCoreApplication.processEvents()
 
     assert odebrane == []
+
+
+def test_sprawdzarka_emituje_brak_nowszej_gdy_wersja_aktualna(monkeypatch):
+    _app()
+    wydanie = Wydanie(tag="1.0.1", wersja="1.0.1", url_zip="http://x/1.0.1.zip")
+    monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: wydanie)
+    sprawdzarka = SprawdzarkaAktualizacji()
+    odebrane = []
+    sprawdzarka.brak_nowszej.connect(lambda: odebrane.append(True))
+
+    sprawdzarka.sprawdz_w_tle("1.0.1", repo="ktos/repo")
+
+    assert _poczekaj_az(lambda: odebrane == [True])
+
+
+def test_sprawdzarka_emituje_brak_nowszej_gdy_sprawdzenie_sie_nie_powiodlo(monkeypatch):
+    monkeypatch.setattr("app.aktualizacje.pobierz_najnowsze_wydanie", lambda repo=None: None)
+    _app()
+    sprawdzarka = SprawdzarkaAktualizacji()
+    odebrane = []
+    sprawdzarka.brak_nowszej.connect(lambda: odebrane.append(True))
+
+    sprawdzarka.sprawdz_w_tle("1.0.1", repo="ktos/repo")
+
+    assert _poczekaj_az(lambda: odebrane == [True])

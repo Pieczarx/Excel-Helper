@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from app.aktualizacje import Wydanie
+from app.aktualizacje import REPO_GITHUB, Wydanie
 from app.firmy import Firma
 from app.historia_faktur import HistoriaFakturStore
 from app.kontroler import Kontroler
@@ -8,6 +8,7 @@ from app.kontroler_faktur import KontrolerFaktur
 from app.store import AlertStore
 from app.widok_uzupelnij_excel import WidokUzupelnijExcel
 from app.widok_weryfikacji import WidokWeryfikacji
+from app.wersja import WERSJA
 from app.window import ZAKLADKA_UZUPELNIJ, ZAKLADKA_WERYFIKACJA, GlowneOkno
 
 
@@ -125,6 +126,45 @@ def test_pasek_aktualizacji_pokazuje_sie_po_znalezieniu_nowszej_wersji(tmp_path)
     assert not okno._pasek_aktualizacji.isHidden()
     assert "9.9.9" in okno._etykieta_aktualizacji.text()
     assert okno._przycisk_zainstaluj.text() == "Zainstaluj"
+
+
+def test_klik_sprawdz_aktualizacje_ustawia_flage_i_uruchamia_sprawdzenie(tmp_path, monkeypatch):
+    _app()
+    okno = _okno(tmp_path)
+    wywolania = []
+    monkeypatch.setattr(
+        okno._sprawdzarka_aktualizacji, "sprawdz_w_tle", lambda *a: wywolania.append(a)
+    )
+
+    okno._na_klik_sprawdz_aktualizacje()
+
+    assert okno._sprawdzanie_reczne is True
+    assert wywolania == [(WERSJA, REPO_GITHUB)]
+
+
+def test_brak_nowszej_po_recznym_sprawdzeniu_pokazuje_komunikat(tmp_path, monkeypatch):
+    _app()
+    okno = _okno(tmp_path)
+    okno._na_klik_sprawdz_aktualizacje()  # ustawia _sprawdzanie_reczne
+    wywolania = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: wywolania.append(a))
+
+    okno._na_brak_nowszej_wersji()
+
+    assert wywolania
+    assert okno._sprawdzanie_reczne is False
+
+
+def test_brak_nowszej_po_cichym_sprawdzeniu_nic_nie_pokazuje(tmp_path, monkeypatch):
+    _app()
+    okno = _okno(tmp_path)  # cichy check przy starcie okna juz mogl odpalic sprawdz_w_tle
+    okno._sprawdzanie_reczne = False
+    wywolania = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: wywolania.append(a))
+
+    okno._na_brak_nowszej_wersji()
+
+    assert not wywolania
 
 
 def test_klik_zainstaluj_uruchamia_instalacje_w_tle_i_blokuje_przycisk(tmp_path, monkeypatch):

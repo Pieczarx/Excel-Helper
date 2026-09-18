@@ -72,10 +72,15 @@ def pobierz_najnowsze_wydanie(repo: str | None = None) -> Wydanie | None:
 
 
 class SprawdzarkaAktualizacji(QObject):
-    """Sprawdza w osobnym wątku (zapytanie sieciowe), żeby nie mrozić startu okna - emituje
-    sygnał tylko gdy realnie znaleziono wersję nowszą niż ta uruchomiona."""
+    """Sprawdza w osobnym wątku (zapytanie sieciowe), żeby nie mrozić startu okna.
+
+    `brak_nowszej` emitowany jest przy KAŻDYM sprawdzeniu, które nie znalazło nowszej wersji
+    (także przy cichym sprawdzeniu automatycznym na starcie) - to window.py decyduje, czy komuś
+    faktycznie o tym powiedzieć (np. tylko po ręcznym kliknięciu "Sprawdź aktualizacje" w menu
+    konta), nie ta klasa."""
 
     znaleziono_nowsza = Signal(object)  # Wydanie
+    brak_nowszej = Signal()
 
     def sprawdz_w_tle(self, wersja_lokalna: str, repo: str | None = None) -> None:
         threading.Thread(target=self._sprawdz, args=(wersja_lokalna, repo), daemon=True).start()
@@ -84,3 +89,5 @@ class SprawdzarkaAktualizacji(QObject):
         wydanie = pobierz_najnowsze_wydanie(repo)
         if wydanie is not None and czy_nowsza(wydanie.wersja, wersja_lokalna):
             self.znaleziono_nowsza.emit(wydanie)
+        else:
+            self.brak_nowszej.emit()

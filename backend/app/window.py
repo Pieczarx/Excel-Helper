@@ -128,8 +128,11 @@ class GlowneOkno(QMainWindow):
         self._instalator.zakonczono.connect(self._na_instalacja_zakonczona)
         self._instalator.blad.connect(self._na_blad_instalacji)
 
+        self._sprawdzanie_reczne = False  # patrz _na_klik_sprawdz_aktualizacje/_na_brak_nowszej_wersji
+
         self._sprawdzarka_aktualizacji = SprawdzarkaAktualizacji()
         self._sprawdzarka_aktualizacji.znaleziono_nowsza.connect(self._na_znaleziono_nowsza_wersje)
+        self._sprawdzarka_aktualizacji.brak_nowszej.connect(self._na_brak_nowszej_wersji)
         self._sprawdzarka_aktualizacji.sprawdz_w_tle(WERSJA, REPO_GITHUB)
 
     def _zbuduj_pasek_aktualizacji(self) -> QWidget:
@@ -162,9 +165,17 @@ class GlowneOkno(QMainWindow):
         return self._pasek_aktualizacji
 
     def _na_znaleziono_nowsza_wersje(self, wydanie: Wydanie) -> None:
+        self._sprawdzanie_reczne = False
         self._wydanie_do_instalacji = wydanie
         self._etykieta_aktualizacji.setText(f"Dostępna nowa wersja {wydanie.wersja}")
         self._pasek_aktualizacji.show()
+
+    def _na_brak_nowszej_wersji(self) -> None:
+        # brak_nowszej leci przy KAZDYM sprawdzeniu (takze cichym, automatycznym przy starcie) -
+        # popup pokazujemy tylko, jesli to sprawdzenie wywolal user recznie z menu konta.
+        if self._sprawdzanie_reczne:
+            self._sprawdzanie_reczne = False
+            QMessageBox.information(self, "Brak aktualizacji", "Masz już najnowszą wersję aplikacji.")
 
     def _na_klik_zainstaluj(self) -> None:
         self._przycisk_zainstaluj.setEnabled(False)
@@ -427,11 +438,17 @@ class GlowneOkno(QMainWindow):
             dane["widok_uzupelnij"].odswiez_widocznosc_historii(klient is not None)
 
     def _pokaz_menu_konta(self) -> None:
-        # Na razie tylko wylogowanie - miejsce na wiecej pozycji (np. przelaczanie konta) pozniej.
         menu = QMenu(self)
+        akcja_sprawdz = menu.addAction("Sprawdź aktualizacje")
+        akcja_sprawdz.triggered.connect(self._na_klik_sprawdz_aktualizacje)
+        menu.addSeparator()
         akcja_wyloguj = menu.addAction("Wyloguj")
         akcja_wyloguj.triggered.connect(self._na_klik_wyloguj)
         menu.exec(self._przycisk_konto.mapToGlobal(self._przycisk_konto.rect().bottomLeft()))
+
+    def _na_klik_sprawdz_aktualizacje(self) -> None:
+        self._sprawdzanie_reczne = True
+        self._sprawdzarka_aktualizacji.sprawdz_w_tle(WERSJA, REPO_GITHUB)
 
     def _na_klik_wyloguj(self) -> None:
         self._kontroler_glowny.wyloguj()
