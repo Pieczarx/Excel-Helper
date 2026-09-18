@@ -56,7 +56,7 @@ pip install -r requirements-dev.txt
 python -m PyInstaller excel_helper.spec --noconfirm
 ```
 
-Wynik: `backend/dist/Excel Helper.exe`. Ten plik wgrywasz ręcznie jako załącznik (asset) do
+Wynik: `backend/dist/ExcelHelper.exe`. Ten plik wgrywasz ręcznie jako załącznik (asset) do
 GitHub Release z tagiem odpowiadającym `WERSJA` w [wersja.py](backend/app/wersja.py) — appka
 sama znajdzie go przy sprawdzaniu aktualizacji (patrz [aktualizacje.py](backend/app/aktualizacje.py)).
 

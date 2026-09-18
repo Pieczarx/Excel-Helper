@@ -1,6 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 # Build: pyinstaller excel_helper.spec  (z katalogu backend/)
-# Wynik: dist/Excel Helper.exe - jeden plik, bez wymaganego Pythona u klienta.
+# Wynik: dist/ExcelHelper.exe - jeden plik, bez wymaganego Pythona u klienta.
+#
+# Nazwa pliku CELOWO bez spacji (ExcelHelper, nie "Excel Helper") - GitHub Releases i tak zamienia
+# spacje w nazwach załączników na kropki przy uploadzie (np. "Excel Helper.exe" -> "Excel.Helper.exe",
+# potwierdzone przez surowe API), więc plik bez spacji zostaje zachowany dokładnie taki, jaki jest.
+# Nazwa wyświetlana w appce (tytuł okna, tray) zostaje "Excel Helper" ze spacją - to osobna sprawa,
+# patrz window.py/tray.py.
 #
 # --collect-all na keyring/pystray: obie biblioteki dobierają backend systemowy dynamicznie
 # (importlib w czasie działania, nie statyczny import na górze pliku) - bez tego PyInstaller
@@ -38,7 +44,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="Excel Helper",
+    name="ExcelHelper",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
