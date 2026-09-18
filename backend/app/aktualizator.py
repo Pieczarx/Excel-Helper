@@ -49,13 +49,27 @@ def _pobierz_plik(url: str, cel: Path) -> None:
     """`urllib.request.urlretrieve` nie przyjmuje jawnego kontekstu SSL - stad recznie przez
     urlopen+copyfileobj, zeby uzyc KONTEKST_SSL (patrz app/siec.py po uzasadnienie: bez tego
     pobieranie aktualizacji na niektorych komputerach zawodzi z CERTIFICATE_VERIFY_FAILED,
-    dokladnie jak sprawdzanie wersji w aktualizacje.py)."""
+    dokladnie jak sprawdzanie wersji w aktualizacje.py).
+
+    Sprawdza tez rozmiar pobranego pliku wzgledem naglowka Content-Length (jesli serwer go poda) -
+    ucięte/niepełne pobieranie (np. zerwane polaczenie w polowie) inaczej mogloby przejsc bez
+    zadnego wyjatku i appka podmienilaby sie na niepelny, niedzialajacy plik."""
     try:
         with urllib.request.urlopen(url, timeout=_TIMEOUT_POBIERANIA_SEKUND, context=KONTEKST_SSL) as odpowiedz:
+            oczekiwany_rozmiar = odpowiedz.headers.get("Content-Length")
             with open(cel, "wb") as plik:
                 shutil.copyfileobj(odpowiedz, plik)
     except OSError as exc:
         raise BladInstalacji(f"Nie udało się pobrać aktualizacji: {exc}") from None
+
+    if oczekiwany_rozmiar is not None:
+        rzeczywisty_rozmiar = cel.stat().st_size
+        if rzeczywisty_rozmiar != int(oczekiwany_rozmiar):
+            cel.unlink(missing_ok=True)
+            raise BladInstalacji(
+                f"Pobrany plik jest niepełny ({rzeczywisty_rozmiar} z {oczekiwany_rozmiar} bajtów) "
+                "- spróbuj ponownie."
+            )
 
 
 def _znajdz_katalog_backend(rozpakowane: Path) -> Path:

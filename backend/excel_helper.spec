@@ -17,11 +17,16 @@
 # przy zapytaniach do GitHuba - bez tego wpisu PyInstaller nie bierze pod uwagę, że plik danych
 # cacert.pem jest w ogóle potrzebny (żadna statyczna analiza importów tego nie wychwyci), więc
 # certifi.where() w spakowanej appce wskazywałby na ścieżkę, której tam po prostu nie ma.
+#
+# pyexpat jawnie w hiddenimports: openpyxl (przez xml.etree.ElementTree) go potrzebuje, a
+# zaobserwowane realnie: "ModuleNotFoundError: No module named 'pyexpat'" w appce zainstalowanej
+# przez WŁASNY mechanizm samoaktualizacji appki (choć nie w exe budowanym i uruchamianym wprost
+# tutaj) - PyInstaller zwykle wykrywa to sam, ale nie zawsze niezawodnie, więc wymuszamy jawnie.
 from PyInstaller.utils.hooks import collect_all
 
 datas = [("assets/icon.ico", "assets")]
 binaries = []
-hiddenimports = []
+hiddenimports = ["pyexpat", "xml.parsers.expat", "xml.etree.ElementTree"]
 
 for pakiet in ("keyring", "pystray", "certifi"):
     _datas, _binaries, _hiddenimports = collect_all(pakiet)

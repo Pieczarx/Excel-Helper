@@ -24,6 +24,17 @@ def _app():
     return app or QCoreApplication([])
 
 
+class _FalszywaOdpowiedz(io.BytesIO):
+    """Udaje obiekt zwracany przez urlopen - poza tresc (przez io.BytesIO) niesie tez `.headers`
+    z poprawnym Content-Length, zeby test_pobierz_plik... nie wpadal w nowa kontrole integralnosci
+    (patrz _pobierz_plik w aktualizator.py) tam, gdzie nie o to akurat chodzi w danym tescie."""
+
+    def __init__(self, zawartosc: bytes, rozmiar_naglowka: int | None = None):
+        super().__init__(zawartosc)
+        rozmiar = len(zawartosc) if rozmiar_naglowka is None else rozmiar_naglowka
+        self.headers = {"Content-Length": str(rozmiar)}
+
+
 def _poczekaj_az(warunek, timeout: float = 5.0) -> bool:
     koniec = time.time() + timeout
     while time.time() < koniec:
@@ -95,7 +106,7 @@ def test_zainstaluj_podmienia_pliki_i_nie_rusza_rodzenstwa_katalogu_aplikacji(tm
     archiwum = _zbuduj_archiwum_wydania(tmp_path)
     monkeypatch.setattr(
         "app.aktualizator.urllib.request.urlopen",
-        lambda url, **kwargs: io.BytesIO(archiwum.read_bytes()),
+        lambda url, **kwargs: _FalszywaOdpowiedz(archiwum.read_bytes()),
     )
 
     root = tmp_path / "instalacja"
@@ -116,7 +127,7 @@ def test_zainstaluj_przywraca_kopie_zapasowa_gdy_podmiana_sie_nie_powiedzie(tmp_
     archiwum = _zbuduj_archiwum_wydania(tmp_path)
     monkeypatch.setattr(
         "app.aktualizator.urllib.request.urlopen",
-        lambda url, **kwargs: io.BytesIO(archiwum.read_bytes()),
+        lambda url, **kwargs: _FalszywaOdpowiedz(archiwum.read_bytes()),
     )
     monkeypatch.setattr(
         "app.aktualizator._podmien_pliki",
@@ -131,6 +142,22 @@ def test_zainstaluj_przywraca_kopie_zapasowa_gdy_podmiana_sie_nie_powiedzie(tmp_
         zainstaluj("http://przykladowy-url/wydanie.zip", katalog_aplikacji=katalog_aplikacji)
 
     assert (katalog_aplikacji / "app" / "wersja.py").read_text() == "WERSJA = '1.0.0'\n"
+
+
+def test_zainstaluj_niepelne_pobieranie_rzuca_blad_i_usuwa_plik(tmp_path, monkeypatch):
+    """Zgloszony realny blad: appka podmienila sie na niepelny/uszkodzony plik (skutek: appka po
+    aktualizacji nie startowala, ModuleNotFoundError przy imporcie). Content-Length z odpowiedzi
+    (100) nie zgadza sie z faktycznie zapisana trescia (krotsza) - appka ma to wylapac, zamiast
+    cicho zainstalowac niepelny plik."""
+    monkeypatch.setattr(
+        "app.aktualizator.urllib.request.urlopen",
+        lambda url, **kwargs: _FalszywaOdpowiedz(b"za krotka tresc", rozmiar_naglowka=100),
+    )
+    katalog_aplikacji = tmp_path / "instalacja" / "backend"
+    katalog_aplikacji.mkdir(parents=True)
+
+    with pytest.raises(BladInstalacji, match="niepełny"):
+        zainstaluj("http://przykladowy-url/wydanie.zip", katalog_aplikacji=katalog_aplikacji)
 
 
 def test_zainstaluj_blad_pobierania_rzuca_blad_instalacji(tmp_path, monkeypatch):
@@ -180,7 +207,7 @@ def test_instalator_emituje_blad_gdy_instalacja_sie_nie_powiedzie(tmp_path, monk
 def test_zainstaluj_zamrozona_podmienia_plik_exe(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "app.aktualizator.urllib.request.urlopen",
-        lambda url, **kwargs: io.BytesIO(b"nowa-wersja-exe"),
+        lambda url, **kwargs: _FalszywaOdpowiedz(b"nowa-wersja-exe"),
     )
     biezacy_exe = tmp_path / "Excel Helper.exe"
     biezacy_exe.write_text("stara-wersja-exe")
@@ -194,7 +221,7 @@ def test_zainstaluj_zamrozona_podmienia_plik_exe(tmp_path, monkeypatch):
 def test_zainstaluj_zamrozona_przywraca_poprzedni_plik_gdy_kopiowanie_sie_nie_powiedzie(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "app.aktualizator.urllib.request.urlopen",
-        lambda url, **kwargs: io.BytesIO(b"nowa-wersja-exe"),
+        lambda url, **kwargs: _FalszywaOdpowiedz(b"nowa-wersja-exe"),
     )
     monkeypatch.setattr(
         "app.aktualizator.shutil.copy2",
