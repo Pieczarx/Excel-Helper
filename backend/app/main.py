@@ -60,9 +60,6 @@ def _poczatkowy_magazyn() -> MagazynAlertow:
 
 
 def main() -> None:
-    if czy_zamrozona():
-        posprzataj_poprzednia_wersje()  # sprzata plik .poprzedni po ewentualnej aktualizacji
-    _zapewnij_autostart()
     qInstallMessageHandler(_filtruj_komunikaty_qt)
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # dalej dziala w tray po zamknieciu okna (X)
@@ -71,8 +68,39 @@ def main() -> None:
     # Appka dalej dziala w tray po zamknieciu okna (linijka wyzej) - bez tej blokady kazda kolejna
     # proba uruchomienia (np. podwojny klik w .exe) odpalalaby NOWY, niezalezny proces zamiast
     # pokazac juz dzialajace okno. Druga+ instancja konczy sie od razu, bez budowania reszty appki.
+    #
+    # Sprawdzenie i zalozenie WLASNEGO serwera musza isc zaraz jedno po drugim, na samym poczatku
+    # main() - kiedy stal to na koncu (po _zapewnij_autostart/_poczatkowy_magazyn/zbudowaniu
+    # calego okna, czyli nawet kilka sekund), dwie proby uruchomienia blisko siebie w czasie
+    # (np. sfrustrowany podwojny klik, gdy pierwsza jeszcze nie zdazyla ruszyc) obie zdazaly
+    # sprawdzic "nikt nie nasluchuje" ZANIM ktorakolwiek zdazyla zaczac nasluchiwac - obie stawaly
+    # sie pelnoprawnymi, niezaleznymi instancjami (stad zgloszone mnozace sie procesy).
     if czy_juz_dziala_i_aktywowano():
         return
+
+    stan_okna: dict[str, object] = {"okno": None, "pokaz_oczekuje": False}
+
+    def _pokaz_okno(okno: GlowneOkno) -> None:
+        okno.show()
+        okno.raise_()
+        okno.activateWindow()
+
+    def _na_sygnal_pokaz() -> None:
+        okno = stan_okna["okno"]
+        if okno is not None:
+            _pokaz_okno(okno)
+        else:
+            # Sygnal przyszedl, zanim zdazylismy zbudowac wlasne okno (bardzo waski margines,
+            # patrz komentarz wyzej) - zapamietujemy, zeby i tak je pokazac zaraz po zbudowaniu.
+            stan_okna["pokaz_oczekuje"] = True
+
+    # Referencja musi przezyc cala funkcje (patrz pojedyncza_instancja.py) - stad zmienna, nie
+    # tylko wywolanie bez przypisania.
+    serwer_instancji = uruchom_serwer(_na_sygnal_pokaz)
+
+    if czy_zamrozona():
+        posprzataj_poprzednia_wersje()  # sprzata plik .poprzedni po ewentualnej aktualizacji
+    _zapewnij_autostart()
 
     store = _poczatkowy_magazyn()
     try:
@@ -89,15 +117,9 @@ def main() -> None:
             for firma in FIRMY
         ]
         okno = GlowneOkno(pary)
-
-        def _na_sygnal_pokaz() -> None:
-            okno.show()
-            okno.raise_()
-            okno.activateWindow()
-
-        # Referencja musi przezyc cala funkcje (patrz pojedyncza_instancja.py) - stad zmienna, nie
-        # tylko wywolanie bez przypisania.
-        serwer_instancji = uruchom_serwer(_na_sygnal_pokaz)
+        stan_okna["okno"] = okno
+        if stan_okna["pokaz_oczekuje"]:
+            _pokaz_okno(okno)
 
         # Tray śledzi na razie tylko pierwszą (domyślną) firmę - rozszerzenie o wszystkie
         # to osobna decyzja, poza zakresem dzisiejszego przygotowania gruntu pod drugą firmę.
