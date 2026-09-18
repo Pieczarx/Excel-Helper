@@ -68,6 +68,21 @@ def przycisk_pill(tlo: str, tekst: str, tlo_hover: str, obwodka: str | None = No
     )
 
 
+def styl_checkboxa(tekst_kolor: str, rozmiar: str = "13px") -> str:
+    """QSS dla checkboksa z w pełni własnym (nie systemowym) kwadracikiem - natywny wskaźnik na
+    Windows potrafi się różnie przerysować, kiedy widget jest tylko częściowo widoczny w
+    przewijanym obszarze (górna/dolna krawędź robi się cieńsza/jaśniejsza) - rysujemy go więc sami
+    przez ::indicator zamiast polegać na stylu systemu."""
+    return (
+        f"QCheckBox {{ background: transparent; color: {tekst_kolor}; font-size: {rozmiar}; "
+        f"font-weight: 600; font-family: {CZCIONKA_NAGLOWEK}; spacing: 8px; }}"
+        "QCheckBox::indicator { width: 16px; height: 16px; border-radius: 4px; "
+        f"border: 1.5px solid {LINIA_MOCNA}; background: {POWIERZCHNIA}; }}"
+        f"QCheckBox::indicator:hover {{ border-color: {ZIELEN}; }}"
+        f"QCheckBox::indicator:checked {{ background: {ZIELEN}; border-color: {ZIELEN}; }}"
+    )
+
+
 class EtykietaSciezki(QLabel):
     """QLabel do wyświetlania ścieżek plików/folderów.
 

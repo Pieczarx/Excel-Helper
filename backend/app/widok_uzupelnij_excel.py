@@ -68,6 +68,7 @@ from app.styl import (
     ZIELEN_GLEBOKA,
     ZIELEN_TLO,
     przycisk_pill,
+    styl_checkboxa,
 )
 
 ETYKIETY_KATEGORII = {
@@ -626,10 +627,7 @@ class WidokUzupelnijExcel(QWidget):
 
         self._checkbox_aktualizuj = QCheckBox("Aktualizuj uzupełnione dane")
         self._checkbox_aktualizuj.setCursor(Qt.PointingHandCursor)
-        self._checkbox_aktualizuj.setStyleSheet(
-            f"QCheckBox {{ background: transparent; color: {ATRAMENT}; font-size: 13px; "
-            f"font-weight: 600; font-family: {CZCIONKA_NAGLOWEK}; spacing: 8px; }}"
-        )
+        self._checkbox_aktualizuj.setStyleSheet(styl_checkboxa(ATRAMENT))
         self._uklad_tresci.addWidget(self._checkbox_aktualizuj)
 
         podpowiedz_aktualizuj = QLabel(
