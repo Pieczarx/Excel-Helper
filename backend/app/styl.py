@@ -5,8 +5,8 @@ rundach poprawek - jaśniejsze tło strony i biała, nie zielona, strefa upuszcz
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QFontMetrics
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from PySide6.QtGui import QFontMetrics, QPixmap
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
 
 PAPIER = "#FAFAF6"
 POWIERZCHNIA = "#FFFFFF"
@@ -179,3 +179,77 @@ class EtykietaSciezki(QLabel):
         metryki = QFontMetrics(self.font())
         skrocony = metryki.elidedText(self._pelny_tekst, Qt.ElideLeft, max(self.width(), 1))
         super().setText(skrocony)
+
+
+class EkranStartowy(QWidget):
+    """Mały ekran powitalny z paskiem postępu, pokazywany od razu po starcie appki - zanim
+    zdąży się zbudować właściwe okno (rejestracja autostartu, odtworzenie sesji Supabase i
+    zbudowanie GłównegoOkna razem mogą zająć kilka sekund, w trakcie których appka bez tego
+    ekranu nie pokazywała NICZEGO, co przy ręcznym uruchomieniu appki wyglądało jak "nic się nie
+    dzieje" - patrz main.py po kolejność wywołań ustaw_postep()).
+
+    Bez ramki okna i paska tytułu (Qt.SplashScreen) - to komunikat "trwa ładowanie", nie
+    pełnoprawne okno appki, więc nie powinien mieć własnej ikony na pasku zadań/w Alt+Tab."""
+
+    def __init__(self, ikona: QPixmap | None = None, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.SplashScreen | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setFixedSize(320, 200)
+        self.setStyleSheet(f"EkranStartowy {{ background: {PAPIER}; border-radius: 16px; border: 1px solid {LINIA}; }}")
+
+        uklad = QVBoxLayout(self)
+        uklad.setContentsMargins(28, 28, 28, 28)
+        uklad.setSpacing(14)
+        uklad.addStretch()
+
+        if ikona is not None and not ikona.isNull():
+            znak = QLabel()
+            znak.setPixmap(ikona.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            znak.setAlignment(Qt.AlignCenter)
+            znak.setStyleSheet("background: transparent; border: none;")
+            uklad.addWidget(znak)
+
+        tytul = QLabel("Excel Helper")
+        tytul.setAlignment(Qt.AlignCenter)
+        tytul.setStyleSheet(
+            f"background: transparent; border: none; color: {ATRAMENT}; font-size: 16px; "
+            f"font-weight: 700; font-family: {CZCIONKA_NAGLOWEK};"
+        )
+        uklad.addWidget(tytul)
+
+        self._pasek = QProgressBar()
+        self._pasek.setRange(0, 100)
+        self._pasek.setTextVisible(False)
+        self._pasek.setFixedHeight(6)
+        self._pasek.setStyleSheet(
+            f"QProgressBar {{ background: {POWIERZCHNIA_MIEKKA}; border: none; border-radius: 3px; }}"
+            f"QProgressBar::chunk {{ background: {ZIELEN}; border-radius: 3px; }}"
+        )
+        uklad.addWidget(self._pasek)
+
+        self._etykieta = QLabel()
+        self._etykieta.setAlignment(Qt.AlignCenter)
+        self._etykieta.setStyleSheet(
+            f"background: transparent; border: none; color: {STONOWANY}; font-size: 11.5px; "
+            f"font-family: {CZCIONKA_TEKST};"
+        )
+        uklad.addWidget(self._etykieta)
+        uklad.addStretch()
+
+        self.ustaw_postep(0, "Uruchamianie…")
+        self._wysrodkuj()
+
+    def ustaw_postep(self, procent: int, tekst: str) -> None:
+        self._pasek.setValue(procent)
+        self._etykieta.setText(tekst)
+        # Bez processEvents appka nie odmalowuje sie ponownie w trakcie dlugich, blokujacych
+        # krokow startu (rejestracja autostartu, siec do Supabase) - pasek zostalby zamrozony na
+        # poprzedniej wartosci az appka skonczy sie budowac.
+        QApplication.processEvents()
+
+    def _wysrodkuj(self) -> None:
+        ekran = QApplication.primaryScreen()
+        if ekran is None:
+            return
+        srodek = ekran.availableGeometry().center()
+        self.move(srodek.x() - self.width() // 2, srodek.y() - self.height() // 2)

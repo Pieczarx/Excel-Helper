@@ -15,6 +15,14 @@ NAZWA_ZADANIA = "Excel Helper"
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 VBS_PATH = BACKEND_DIR / "scripts" / "uruchom_ukryte.vbs"
 
+# Dopisywane do polecenia startowego appki, kiedy odpala ją Harmonogram zadań - main.py sprawdza
+# ten argument w sys.argv, żeby odróżnić "wystartowałem cicho z autostartu" od "user właśnie mnie
+# ręcznie odpalił" (podwójny klik w .exe). Bez tego appka nie miała jak tego rozróżnić inaczej niż
+# zgadywaniem po tym, czy stdout jest terminalem - co dawało identyczny wynik dla obu przypadków
+# (żaden nie jest terminalem), więc ręczne uruchomienie appki z już skonfigurowanym plikiem
+# wyglądało tak samo jak cichy start z autostartu i wcale nie pokazywało okna.
+FLAGA_AUTOSTART = "--autostart"
+
 
 def _pythonw() -> Path:
     return Path(sys.executable).with_name("pythonw.exe")
@@ -25,7 +33,7 @@ def zawartosc_vbs(backend_dir: Path = BACKEND_DIR, pythonw: Path | None = None) 
     return (
         'Set objShell = CreateObject("WScript.Shell")\n'
         f'objShell.CurrentDirectory = "{backend_dir}"\n'
-        f'objShell.Run """{pythonw}"" -m app.main", 0, False\n'
+        f'objShell.Run """{pythonw}"" -m app.main {FLAGA_AUTOSTART}", 0, False\n'
     )
 
 
@@ -46,7 +54,7 @@ def polecenie_instalacji_zamrozonej(sciezka_exe: Path) -> list[str]:
     z PyInstaller w trybie --windowed już nie pokazuje konsoli, więc wrapper nie jest potrzebny)."""
     return [
         "schtasks", "/create", "/tn", NAZWA_ZADANIA,
-        "/tr", f'"{sciezka_exe}"',
+        "/tr", f'"{sciezka_exe}" {FLAGA_AUTOSTART}',
         "/sc", "onlogon",
         "/f",
     ]

@@ -6,11 +6,12 @@ import sys
 import threading
 
 from PySide6.QtCore import qInstallMessageHandler
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QApplication
 
 from app import autostart
 from app.aktualizator import posprzataj_poprzednia_wersje
+from app.autostart import FLAGA_AUTOSTART
 from app.config import wczytaj_konfiguracje_supabase
 from app.firmy import FIRMY
 from app.historia_faktur_base import PustyMagazynHistorii
@@ -20,6 +21,7 @@ from app.pojedyncza_instancja import czy_juz_dziala_i_aktywowano, uruchom_serwer
 from app.sciezki import czy_zamrozona, katalog_zasobow
 from app.store import AlertStore
 from app.store_base import MagazynAlertow
+from app.styl import EkranStartowy
 from app.supabase_store import przywroc_sesje
 from app.tray import TrayApp
 from app.window import GlowneOkno
@@ -41,12 +43,25 @@ def _zapewnij_autostart() -> None:
     """Rejestruje autostart automatycznie, bez pytania użytkownika - appka ma po prostu sama
     startować z systemem, nie wymagać od nikogo świadomej decyzji/checkboksa (patrz window.py -
     dawny checkbox w stopce świadomie usunięty). Cicho ignoruje błąd (np. brak uprawnień) - appka
-    ma dalej normalnie działać, nawet jeśli akurat nie da się zarejestrować autostartu."""
+    ma dalej normalnie działać, nawet jeśli akurat nie da się zarejestrować autostartu.
+
+    Rejestruje ZAWSZE, nie tylko gdy zadania jeszcze nie ma (`schtasks /create /f` samo w sobie
+    jest bezpieczne do powtórzenia - nadpisuje istniejące) - żeby stara instalacja (np. sprzed
+    dodania FLAGA_AUTOSTART do polecenia) sama się naprawiła przy pierwszym uruchomieniu nowej
+    wersji, zamiast zostać na zawsze z przestarzałym poleceniem startowym."""
     try:
-        if not autostart.czy_zainstalowany():
-            autostart.zainstaluj()
+        autostart.zainstaluj()
     except (subprocess.CalledProcessError, OSError):
         pass
+
+
+def _czy_pokazac_okno_od_razu(uruchomiono_przez_autostart: bool, zaden_plik_nie_wybrany: bool) -> bool:
+    """Autostart (FLAGA_AUTOSTART w sys.argv) ma zostać cichy, prosto do tray - każde INNE
+    uruchomienie (ręcznie z Eksploratora/terminala) ma pokazać okno od razu, żeby user miał
+    natychmiastowe potwierdzenie, że coś się stało, a nie musiał szukać nowej ikonki w (często
+    ukrytym) zasobniku systemowym. Świeża instalacja (jeszcze bez wybranego pliku) pokazuje okno
+    zawsze, nawet z autostartu - inaczej nie miałby jak zacząć jej konfigurować."""
+    return zaden_plik_nie_wybrany or not uruchomiono_przez_autostart
 
 
 def _poczatkowy_magazyn() -> MagazynAlertow:
@@ -78,6 +93,19 @@ def main() -> None:
     if czy_juz_dziala_i_aktywowano():
         return
 
+    # Autostart odpala appke z ta flaga (patrz autostart.py) - ma zostac CICHO w tray, tak jak
+    # dzialalo to dotychczas. Recznemu uruchomieniu (podwojny klik w .exe) tej flagi brakuje, wiec
+    # dostaje ekran startowy i normalnie pokazane okno - dawniej odrozniane tylko tym, czy stdout
+    # jest terminalem, co dawalo identyczny (falszywy) wynik dla obu przypadkow i przy juz
+    # skonfigurowanym pliku appka odpalona recznie nie pokazywala sie wcale (zgloszony blad).
+    uruchomiono_przez_autostart = FLAGA_AUTOSTART in sys.argv
+
+    splash = None
+    if not uruchomiono_przez_autostart:
+        splash = EkranStartowy(QPixmap(str(ICON_PATH)))
+        splash.show()
+        splash.ustaw_postep(10, "Uruchamianie…")
+
     stan_okna: dict[str, object] = {"okno": None, "pokaz_oczekuje": False}
 
     def _pokaz_okno(okno: GlowneOkno) -> None:
@@ -100,8 +128,12 @@ def main() -> None:
 
     if czy_zamrozona():
         posprzataj_poprzednia_wersje()  # sprzata plik .poprzedni po ewentualnej aktualizacji
+    if splash:
+        splash.ustaw_postep(30, "Przygotowywanie…")
     _zapewnij_autostart()
 
+    if splash:
+        splash.ustaw_postep(55, "Łączenie z kontem…")
     store = _poczatkowy_magazyn()
     try:
         # Jedna para (Kontroler, KontrolerFaktur) na firmę - własny plik Excela/folder faktur
@@ -116,6 +148,8 @@ def main() -> None:
             )
             for firma in FIRMY
         ]
+        if splash:
+            splash.ustaw_postep(80, "Budowanie okna…")
         okno = GlowneOkno(pary)
         stan_okna["okno"] = okno
         if stan_okna["pokaz_oczekuje"]:
@@ -128,13 +162,12 @@ def main() -> None:
         watek_tray = threading.Thread(target=tray.run, daemon=True)
         watek_tray.start()
 
-        # Autostart leci przez pythonw.exe bez konsoli - ma byc cichy, prosto do tray.
-        # Recznie odpalone z terminala (python -m app.main) ma pokazac okno od razu,
-        # zeby user mial natychmiastowe potwierdzenie ze cos sie stalo, a nie musial
-        # szukac nowej ikonki w (czesto ukrytym) zasobniku systemowym.
-        uruchomiono_z_terminala = sys.stdout is not None and sys.stdout.isatty()
+        if splash:
+            splash.ustaw_postep(100, "Gotowe")
+            splash.close()
+
         zaden_plik_nie_wybrany = all(kontroler.sciezka is None for _, kontroler, _ in pary)
-        if zaden_plik_nie_wybrany or uruchomiono_z_terminala:
+        if _czy_pokazac_okno_od_razu(uruchomiono_przez_autostart, zaden_plik_nie_wybrany):
             okno.show()
 
         kod_wyjscia = app.exec()
@@ -143,6 +176,8 @@ def main() -> None:
             kontroler_faktur.close()
     finally:
         store.close()
+        if splash is not None:
+            splash.close()  # bezpieczne nawet gdy juz zamkniety (np. wczesniej, po zbudowaniu okna)
 
     sys.exit(kod_wyjscia)
 

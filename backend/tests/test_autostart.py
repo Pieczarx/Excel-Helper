@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 from app.autostart import (
+    FLAGA_AUTOSTART,
     NAZWA_ZADANIA,
     czy_zainstalowany,
     polecenie_instalacji,
@@ -30,7 +31,7 @@ def test_zawartosc_vbs_koduje_polecenie_z_cudzyslowami_poprawnie():
     pythonw = Path(r"C:\Program Files\Python\pythonw.exe")  # spacja w sciezce - warto sprawdzic
     vbs = zawartosc_vbs(Path(r"C:\proj\backend"), pythonw)
     polecenie = _dekoduj_argument_run(vbs)
-    assert polecenie == f'"{pythonw}" -m app.main'
+    assert polecenie == f'"{pythonw}" -m app.main {FLAGA_AUTOSTART}'
 
 
 def test_polecenie_instalacji_wskazuje_wscript_i_plik_vbs():
@@ -43,11 +44,11 @@ def test_polecenie_instalacji_wskazuje_wscript_i_plik_vbs():
 
 
 def test_polecenie_instalacji_zamrozonej_wskazuje_bezposrednio_na_exe():
-    sciezka_exe = Path(r"C:\ExcelHelper\Excel Helper.exe")
+    sciezka_exe = Path(r"C:\ExcelHelper\ExcelHelper.exe")
     polecenie = polecenie_instalacji_zamrozonej(sciezka_exe)
     assert polecenie[:2] == ["schtasks", "/create"]
     assert NAZWA_ZADANIA in polecenie
-    assert f'"{sciezka_exe}"' in polecenie
+    assert f'"{sciezka_exe}" {FLAGA_AUTOSTART}' in polecenie
     assert "onlogon" in polecenie
     assert "wscript.exe" not in " ".join(polecenie)
 
