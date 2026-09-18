@@ -12,13 +12,18 @@
 # (importlib w czasie działania, nie statyczny import na górze pliku) - bez tego PyInstaller
 # nie znajduje właściwego backendu Windows i appka wysypuje się dopiero przy pierwszym użyciu
 # (logowanie / ikona w zasobniku), nie przy starcie.
+#
+# --collect-all na certifi: appka jawnie używa certifi.where() (patrz app/siec.py) do CA bundla
+# przy zapytaniach do GitHuba - bez tego wpisu PyInstaller nie bierze pod uwagę, że plik danych
+# cacert.pem jest w ogóle potrzebny (żadna statyczna analiza importów tego nie wychwyci), więc
+# certifi.where() w spakowanej appce wskazywałby na ścieżkę, której tam po prostu nie ma.
 from PyInstaller.utils.hooks import collect_all
 
 datas = [("assets/icon.ico", "assets")]
 binaries = []
 hiddenimports = []
 
-for pakiet in ("keyring", "pystray"):
+for pakiet in ("keyring", "pystray", "certifi"):
     _datas, _binaries, _hiddenimports = collect_all(pakiet)
     datas += _datas
     binaries += _binaries

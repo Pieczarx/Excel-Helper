@@ -17,6 +17,8 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Signal
 
+from app.siec import KONTEKST_SSL
+
 REPO_GITHUB: str | None = "Pieczarx/Excel-Helper"
 
 _TIMEOUT_SEKUND = 10
@@ -62,7 +64,9 @@ def _pobierz_najnowsze_wydanie_z_powodem(repo: str | None) -> tuple[Wydanie | No
         return None, "Synchronizacja z GitHubem nie jest skonfigurowana."
     try:
         with urllib.request.urlopen(
-            f"https://api.github.com/repos/{repo}/releases/latest", timeout=_TIMEOUT_SEKUND
+            f"https://api.github.com/repos/{repo}/releases/latest",
+            timeout=_TIMEOUT_SEKUND,
+            context=KONTEKST_SSL,
         ) as odpowiedz:
             dane = json.loads(odpowiedz.read().decode("utf-8"))
         tag = dane["tag_name"]

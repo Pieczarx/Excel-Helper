@@ -1,9 +1,19 @@
 """Numer wersji aplikacji i changelog pokazywany po kliknięciu w stopkę okna."""
 from __future__ import annotations
 
-WERSJA = "1.0.7"
+WERSJA = "1.0.8"
 
 CHANGELOG: list[dict] = [
+    {
+        "wersja": "1.0.8",
+        "data": "2026-09-18",
+        "zmiany": [
+            "Naprawiono błąd uniemożliwiający sprawdzanie i pobieranie aktualizacji na niektórych "
+            "komputerach (\"CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate\") - "
+            "spakowana aplikacja nie miała dostępu do tego samego zestawu zaufanych certyfikatów, "
+            "co zwykła przeglądarka",
+        ],
+    },
     {
         "wersja": "1.0.7",
         "data": "2026-09-18",

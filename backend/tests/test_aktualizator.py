@@ -1,3 +1,4 @@
+import io
 import time
 import zipfile
 from pathlib import Path
@@ -93,7 +94,8 @@ def test_podmien_pliki_nadpisuje_istniejace_i_dodaje_nowe(tmp_path):
 def test_zainstaluj_podmienia_pliki_i_nie_rusza_rodzenstwa_katalogu_aplikacji(tmp_path, monkeypatch):
     archiwum = _zbuduj_archiwum_wydania(tmp_path)
     monkeypatch.setattr(
-        "app.aktualizator.urllib.request.urlretrieve", lambda url, cel: __import__("shutil").copy(archiwum, cel)
+        "app.aktualizator.urllib.request.urlopen",
+        lambda url, **kwargs: io.BytesIO(archiwum.read_bytes()),
     )
 
     root = tmp_path / "instalacja"
@@ -113,7 +115,8 @@ def test_zainstaluj_podmienia_pliki_i_nie_rusza_rodzenstwa_katalogu_aplikacji(tm
 def test_zainstaluj_przywraca_kopie_zapasowa_gdy_podmiana_sie_nie_powiedzie(tmp_path, monkeypatch):
     archiwum = _zbuduj_archiwum_wydania(tmp_path)
     monkeypatch.setattr(
-        "app.aktualizator.urllib.request.urlretrieve", lambda url, cel: __import__("shutil").copy(archiwum, cel)
+        "app.aktualizator.urllib.request.urlopen",
+        lambda url, **kwargs: io.BytesIO(archiwum.read_bytes()),
     )
     monkeypatch.setattr(
         "app.aktualizator._podmien_pliki",
@@ -131,10 +134,10 @@ def test_zainstaluj_przywraca_kopie_zapasowa_gdy_podmiana_sie_nie_powiedzie(tmp_
 
 
 def test_zainstaluj_blad_pobierania_rzuca_blad_instalacji(tmp_path, monkeypatch):
-    def _rzuc(url, cel):
+    def _rzuc(url, **kwargs):
         raise OSError("brak polaczenia")
 
-    monkeypatch.setattr("app.aktualizator.urllib.request.urlretrieve", _rzuc)
+    monkeypatch.setattr("app.aktualizator.urllib.request.urlopen", _rzuc)
     katalog_aplikacji = tmp_path / "instalacja" / "backend"
     katalog_aplikacji.mkdir(parents=True)
 
@@ -176,8 +179,8 @@ def test_instalator_emituje_blad_gdy_instalacja_sie_nie_powiedzie(tmp_path, monk
 
 def test_zainstaluj_zamrozona_podmienia_plik_exe(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "app.aktualizator.urllib.request.urlretrieve",
-        lambda url, cel: Path(cel).write_text("nowa-wersja-exe"),
+        "app.aktualizator.urllib.request.urlopen",
+        lambda url, **kwargs: io.BytesIO(b"nowa-wersja-exe"),
     )
     biezacy_exe = tmp_path / "Excel Helper.exe"
     biezacy_exe.write_text("stara-wersja-exe")
@@ -190,8 +193,8 @@ def test_zainstaluj_zamrozona_podmienia_plik_exe(tmp_path, monkeypatch):
 
 def test_zainstaluj_zamrozona_przywraca_poprzedni_plik_gdy_kopiowanie_sie_nie_powiedzie(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "app.aktualizator.urllib.request.urlretrieve",
-        lambda url, cel: Path(cel).write_text("nowa-wersja-exe"),
+        "app.aktualizator.urllib.request.urlopen",
+        lambda url, **kwargs: io.BytesIO(b"nowa-wersja-exe"),
     )
     monkeypatch.setattr(
         "app.aktualizator.shutil.copy2",

@@ -30,11 +30,15 @@ from PySide6.QtCore import QObject, Signal
 
 from app.sciezki import czy_zamrozona
 from app.sciezki import katalog_aplikacji as _katalog_aplikacji_biezacy
+from app.siec import KONTEKST_SSL
 
 if TYPE_CHECKING:
     from app.aktualizacje import Wydanie
 
 KATALOG_APLIKACJI = _katalog_aplikacji_biezacy()
+
+# Pliki .exe/zip potrafia miec >100MB - duzo wiecej czasu niz na sam check wersji (aktualizacje.py).
+_TIMEOUT_POBIERANIA_SEKUND = 120
 
 
 class BladInstalacji(Exception):
@@ -42,8 +46,14 @@ class BladInstalacji(Exception):
 
 
 def _pobierz_plik(url: str, cel: Path) -> None:
+    """`urllib.request.urlretrieve` nie przyjmuje jawnego kontekstu SSL - stad recznie przez
+    urlopen+copyfileobj, zeby uzyc KONTEKST_SSL (patrz app/siec.py po uzasadnienie: bez tego
+    pobieranie aktualizacji na niektorych komputerach zawodzi z CERTIFICATE_VERIFY_FAILED,
+    dokladnie jak sprawdzanie wersji w aktualizacje.py)."""
     try:
-        urllib.request.urlretrieve(url, cel)
+        with urllib.request.urlopen(url, timeout=_TIMEOUT_POBIERANIA_SEKUND, context=KONTEKST_SSL) as odpowiedz:
+            with open(cel, "wb") as plik:
+                shutil.copyfileobj(odpowiedz, plik)
     except OSError as exc:
         raise BladInstalacji(f"Nie udało się pobrać aktualizacji: {exc}") from None
 

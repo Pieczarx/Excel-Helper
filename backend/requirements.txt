@@ -6,3 +6,4 @@ PySide6
 supabase
 keyring
 pymupdf
+certifi
