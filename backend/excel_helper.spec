@@ -23,12 +23,16 @@
 # przez WŁASNY mechanizm samoaktualizacji appki (choć nie w exe budowanym i uruchamianym wprost
 # tutaj) - PyInstaller zwykle wykrywa to sam, ale nie zawsze niezawodnie, więc wymuszamy jawnie.
 #
-# disable_windowed_traceback=True: appka okienkowa (console=False) domyślnie pokazuje natywne okno
-# dialogowe z tracebackiem na nieobsłużony wyjątek i NIE kończy przy tym procesu, dopóki ktoś go
-# ręcznie nie zamknie - co psuło wykrywanie krachu w aktualizator.uruchom_ponownie() (poll() widział
-# taki "zawieszony na dialogu" proces jako wciąż żywy, więc retry nigdy się nie uruchamiał). Własny
-# excepthook w uruchom_gui.py już i tak loguje krach do pliku i kończy proces od razu - to ustawienie
-# to tylko dodatkowe zabezpieczenie, gdyby coś ominęło ten hook.
+# disable_windowed_traceback=False (domyślne): appka okienkowa (console=False) domyślnie pokazuje
+# natywne okno dialogowe z tracebackiem na nieobsłużony wyjątek zamiast ciszej śmierci procesu -
+# to jedyny sposób, w jaki zwykły użytkownik (bez dostępu do crash.log) w ogóle zobaczy, że coś
+# poszło nie tak, i będzie mógł przekazać treść błędu. CELOWO zostawione domyślne (a nie True) -
+# próba wymuszenia True (razem z globalnym własnym excepthookiem) w 1.0.13 spowodowała, że appka
+# ciszej padała bez śladu przy KAŻDYM nieobsłużonym wyjątku w całej appce (np. po zalogowaniu), nie
+# tylko przy starcie - patrz uruchom_gui.py, gdzie własny excepthook jest teraz aktywny TYLKO na
+# czas ryzykownego importu na starcie (jedyne miejsce, gdzie potrzebne jest ciche zakończenie
+# procesu zamiast dialogu - dla poprawnego działania retry w aktualizator.uruchom_ponownie()), a
+# potem przywracany do domyślnego - więc każdy inny krach appki znów pokazuje ten dialog.
 from PyInstaller.utils.hooks import collect_all
 
 datas = [("assets/icon.ico", "assets")]
@@ -69,7 +73,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    disable_windowed_traceback=True,
+    disable_windowed_traceback=False,
     argv_emulation=False,
     icon="assets/icon.ico",
 )
