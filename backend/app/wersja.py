@@ -13,6 +13,10 @@ CHANGELOG: list[dict] = [
             "czy nadpisać już wpisane dane, wybiera się zaznaczeniem tej opcji przed kliknięciem "
             "\"Uzupełnij Excel\"",
             "Zakładka drugiej firmy (UK) oznaczona jako wkrótce dostępna",
+            "Naprawiono godzinę wpisania faktury w historii - pokazywała się przesunięta względem "
+            "czasu lokalnego",
+            "Z nagłówka wpisanej faktury usunięto miesiąc - jest on i tak widoczny po rozwinięciu, "
+            "przy każdym obiekcie osobno",
         ],
     },
     {

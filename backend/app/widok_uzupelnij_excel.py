@@ -145,16 +145,13 @@ def _wiersz_chipow(pozycje: list[tuple[str, float]]) -> QHBoxLayout:
     return wiersz
 
 
-def _formatuj_meta(wyniki: list[WynikWpisu]) -> str:
-    for wynik in wyniki:
-        if wynik.okres_do is not None:
-            return f"{MIESIACE_SKROT[wynik.okres_do.month]} {wynik.okres_do.year}"
-    return "-"
-
-
 def _formatuj_czas(czas: datetime | None) -> str:
     if czas is None:
         return "teraz"
+    if czas.tzinfo is not None:
+        # Historia z Supabase wraca ze znacznikiem strefy (UTC) - appka ma pokazywac czas lokalny
+        # usera, nie UTC wprost (stad zglaszone "2h do tylu" w Polsce w czasie letnim/CEST).
+        czas = czas.astimezone().replace(tzinfo=None)
     dzis = datetime.now().date()
     if czas.date() == dzis:
         return f"dziś, {czas:%H:%M}"
@@ -467,7 +464,7 @@ class KartaFaktury(QFrame):
         naglowek = self._zbuduj_naglowek(
             nazwa_pliku, czas,
             "!" if problemy else "✓", SLONCE_GLEBOKIE if problemy else ZIELEN_GLEBOKA,
-            _formatuj_meta(wyniki), podsumowanie, tlo_znacznika=SLONCE_TLO if problemy else ZIELEN_TLO,
+            None, podsumowanie, tlo_znacznika=SLONCE_TLO if problemy else ZIELEN_TLO,
             przycisk_usun=przycisk_usun,
         )
         naglowek.mousePressEvent = lambda _e: self._przelacz_zwiniecie()
@@ -485,8 +482,11 @@ class KartaFaktury(QFrame):
         self._odswiez_zwiniecie()
 
     def _zbuduj_naglowek(
-        self, nazwa_pliku, czas, znak, kolor_znaku, meta, podsumowanie=None, tlo_znacznika=None, przycisk_usun=None
+        self, nazwa_pliku, czas, znak, kolor_znaku, meta_bledu, podsumowanie=None, tlo_znacznika=None, przycisk_usun=None
     ) -> QFrame:
+        """`meta_bledu` to tekst pokazany zamiast czasu, kiedy nie ma `podsumowanie` (karta błędu,
+        np. "faktura nierozpoznana") - w karcie sukcesu zawsze pokazujemy sam czas, bez miesiąca
+        (ten jest już widoczny w rozwiniętej liście obiektów, przy każdej pozycji osobno)."""
         naglowek = QFrame()
         naglowek.setStyleSheet("background: transparent; border: none;")
         uklad = QHBoxLayout(naglowek)
@@ -509,7 +509,7 @@ class KartaFaktury(QFrame):
         )
         uklad.addWidget(nazwa)
 
-        info_meta = QLabel(f"{_formatuj_czas(czas)} · {meta}" if podsumowanie else meta)
+        info_meta = QLabel(_formatuj_czas(czas) if podsumowanie else meta_bledu)
         info_meta.setStyleSheet(f"background: transparent; color: {BLADY}; font-size: 12px; border: none; font-family: {CZCIONKA_TEKST};")
         uklad.addWidget(info_meta)
         uklad.addStretch()

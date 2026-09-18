@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton
@@ -11,7 +11,7 @@ from app.import_faktur import WynikWpisu
 from app.kontroler import Kontroler
 from app.kontroler_faktur import KontrolerFaktur
 from app.store import AlertStore
-from app.widok_uzupelnij_excel import WidokUzupelnijExcel
+from app.widok_uzupelnij_excel import WidokUzupelnijExcel, _formatuj_czas
 
 EXAMPLE_FILE = Path(__file__).resolve().parents[2] / "examples" / "MPECWIK 2026.xlsx"
 
@@ -241,6 +241,22 @@ def test_klik_uzupelnij_przekazuje_stan_checkboxa_aktualizuj(tmp_path, monkeypat
     assert wywolania[-1][1] == {"nadpisuj": True}
 
 
+def test_formatuj_czas_konwertuje_strefe_na_czas_lokalny():
+    """Historia z Supabase wraca ze znacznikiem strefy (UTC) - bez konwersji appka pokazywala czas
+    UTC wprost, co w Polsce dawalo zglaszone "2h do tylu" latem (CEST)."""
+    lokalny_naiwny = datetime.now() - timedelta(days=5)  # solidnie "nie dzis/wczoraj"
+    swiadomy_utc = lokalny_naiwny.astimezone(timezone.utc)  # ta sama chwila, wyrazona w UTC
+
+    assert _formatuj_czas(swiadomy_utc) == _formatuj_czas(lokalny_naiwny)
+
+
+def test_formatuj_czas_dzisiaj_pokazuje_godzine_lokalna_nie_utc():
+    lokalny = datetime.now().replace(microsecond=0)
+    swiadomy_utc = lokalny.astimezone(timezone.utc)
+
+    assert _formatuj_czas(swiadomy_utc) == f"dziś, {lokalny:%H:%M}"
+
+
 def test_zakonczone_przetwarzanie_pokazuje_sekcje_uzupelnione_dane(tmp_path):
     _app()
     widok = WidokUzupelnijExcel(_kontroler(tmp_path), _kontroler_excela(tmp_path))
@@ -257,6 +273,12 @@ def test_zakonczone_przetwarzanie_pokazuje_sekcje_uzupelnione_dane(tmp_path):
     assert widok._uklad_swiezo.count() == 2
     teksty = _wszystkie_teksty(widok._kontener_swiezo)
     assert "Obiekt X" in teksty
+    # naglowek karty pokazuje TYLKO czas wpisania, nie miesiac faktury doklejony obok niego -
+    # ten drugi jest i tak juz widoczny przy kazdej pozycji po rozwinieciu (WierszObiektu ponizej,
+    # patrz _sukces(): okres_do = 20 stycznia 2026 - stad "sty 2026" nadal jest w teksty, ale jako
+    # osobna, legalna etykieta okresu pozycji, NIE sklejona z czasem naglowka przez " · " jak dawniej)
+    assert "dziś" in teksty
+    assert " · " not in teksty
     assert "PPE nieznalezione w arkuszu" in teksty
     assert "Nie rozpoznano jako faktura dystrybucyjna" in teksty
 
